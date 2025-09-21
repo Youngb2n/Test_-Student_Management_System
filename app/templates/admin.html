@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>관리자 등록 | 학생정보시스템</title>
+  <style>
+    :root{ --bg:#0f172a; --card:#ffffff; --text:#111827; --muted:#6b7280; --primary:#2563eb; --radius:16px; }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial,sans-serif; color:var(--text);
+      background: radial-gradient(1200px 600px at 10% 0%, #1e293b 0%, transparent 60%),
+                 radial-gradient(1000px 500px at 100% 100%, #0b5cff33 0%, transparent 55%), var(--bg);
+      display:grid; place-items:flex-start; min-height:100dvh; padding:24px;}
+    .wrap{width:100%; max-width:980px; margin:0 auto; display:grid; gap:16px;}
+    .card{background:var(--card); border-radius:var(--radius); padding:20px 18px; border:1px solid #e5e7eb;
+      box-shadow:0 16px 40px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.06);}
+    h1{margin:0 0 8px; font-size:22px}
+    .sub{margin:0 0 12px; color:var(--muted)}
+    .tabs{display:flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px}
+    .tabs label{flex:1; text-align:center; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; color:#334155}
+    input.tab{display:none}
+    .panel{display:none; margin-top:12px}
+    #t1:checked ~ .panels #p1, #t2:checked ~ .panels #p2,
+    #t3:checked ~ .panels #p3, #t4:checked ~ .panels #p4 {display:block}
+    #t1:checked ~ .tabs label[for="t1"],
+    #t2:checked ~ .tabs label[for="t2"],
+    #t3:checked ~ .tabs label[for="t3"],
+    #t4:checked ~ .tabs label[for="t4"]{background:#2563eb; color:#fff}
+
+    form .grid{display:grid; grid-template-columns: 180px 1fr; gap:10px 14px; margin-top:10px}
+    form label{align-self:center; color:#374151}
+    input[type="text"], textarea{width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px}
+    textarea{min-height:80px; resize:vertical}
+    .row{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
+    .btn{padding:10px 14px; border:none; border-radius:10px; background:#2563eb; color:#fff; font-weight:600; cursor:pointer}
+    .list{margin-top:12px; border-top:1px dashed #e5e7eb; padding-top:10px; color:#374151}
+    .msg{padding:10px 12px; background:#ecfdf5; border:1px solid #10b98133; color:#065f46; border-radius:10px}
+    .topbar{display:flex; justify-content:space-between; align-items:center}
+    .topbar a{color:#2563eb; text-decoration:none}
+    @media(prefers-color-scheme: dark){
+      :root{ --card:#0b1220; --text:#e5e7eb; --muted:#9aa3b2; }
+      .card{border-color:#1f2937}
+      input[type="text"], textarea{background:#0f172a; border-color:#1f2937; color:#e5e7eb}
+      .tabs{background:#0f172a; border-color:#1f2937}
+      .tabs label{color:#cbd5e1}
+      .list{color:#cbd5e1}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="topbar">
+        <div>
+          <h1>관리자 등록</h1>
+          <p class="sub">학생 / 교과인증과정 / 인증제 / 비교과 프로그램을 등록합니다.</p>
+        </div>
+        <div>
+          <a href="/logout">로그아웃</a>
+        </div>
+      </div>
+
+      {% if msg %}
+      <div class="msg">{{ msg }}</div>
+      {% endif %}
+
+      <input class="tab" type="radio" name="tab" id="t1" checked>
+      <input class="tab" type="radio" name="tab" id="t2">
+      <input class="tab" type="radio" name="tab" id="t3">
+      <input class="tab" type="radio" name="tab" id="t4">
+
+      <div class="tabs" role="tablist" aria-label="관리자 등록 탭">
+        <label for="t1">학생</label>
+        <label for="t2">교과인증과정</label>
+        <label for="t3">인증제</label>
+        <label for="t4">비교과 프로그램</label>
+      </div>
+
+      <div class="panels">
+        <!-- ① 학생 -->
+        <section id="p1" class="panel">
+          <form method="post" action="/admin/students" autocomplete="on">
+            <div class="grid">
+              <label>아이디(username)</label>
+              <input type="text" name="username" required placeholder="예: student01"/>
+
+              <label>이름</label>
+              <input type="text" name="name" required placeholder="예: 홍길동"/>
+
+              <label>학번(student_no)</label>
+              <input type="text" name="student_no" required placeholder="예: 20250001"/>
+
+              <label>대학</label>
+              <input type="text" name="college" placeholder="예: 공과대학"/>
+
+              <label>학과</label>
+              <input type="text" name="department" placeholder="예: 컴퓨터공학과"/>
+
+              <label>인증제</label>
+              <input type="text" name="certification_track" placeholder="예: IT인증제"/>
+
+              <label>비교과 프로그램</label>
+              <input type="text" name="extracurricular_programs" placeholder="쉼표로 구분"/>
+
+              <label>사업단 교육과정 이수현황</label>
+              <input type="text" name="consortium_status" placeholder="예: AI사업단 2과목 이수"/>
+            </div>
+            <div class="row">
+              <button class="btn" type="submit">학생 등록/수정</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ② 교과인증과정 -->
+        <section id="p2" class="panel">
+          <form method="post" action="/admin/curriculum">
+            <div class="grid">
+              <label>이름</label>
+              <input type="text" name="name" required placeholder="예: AI 융합 트랙"/>
+              <label>설명</label>
+              <textarea name="description" placeholder="간단 설명"></textarea>
+            </div>
+            <div class="row"><button class="btn" type="submit">등록</button></div>
+          </form>
+          <div class="list">
+            <strong>최근 등록</strong>
+            <ul>
+              {% for item in curr_list %}
+              <li>{{ item.name }}{% if item.description %} — {{ item.description }}{% endif %}</li>
+              {% else %}
+              <li>등록 내역 없음</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+
+        <!-- ③ 인증제 -->
+        <section id="p3" class="panel">
+          <form method="post" action="/admin/certification">
+            <div class="grid">
+              <label>이름</label>
+              <input type="text" name="name" required placeholder="예: IT인증제"/>
+              <label>설명</label>
+              <textarea name="description" placeholder="간단 설명"></textarea>
+            </div>
+            <div class="row"><button class="btn" type="submit">등록</button></div>
+          </form>
+          <div class="list">
+            <strong>최근 등록</strong>
+            <ul>
+              {% for item in cert_list %}
+              <li>{{ item.name }}{% if item.description %} — {{ item.description }}{% endif %}</li>
+              {% else %}
+              <li>등록 내역 없음</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+
+        <!-- ④ 비교과 프로그램 -->
+        <section id="p4" class="panel">
+          <form method="post" action="/admin/extracurricular">
+            <div class="grid">
+              <label>이름</label>
+              <input type="text" name="name" required placeholder="예: 멘토링 프로그램"/>
+              <label>설명</label>
+              <textarea name="description" placeholder="간단 설명"></textarea>
+            </div>
+            <div class="row"><button class="btn" type="submit">등록</button></div>
+          </form>
+          <div class="list">
+            <strong>최근 등록</strong>
+            <ul>
+              {% for item in extra_list %}
+              <li>{{ item.name }}{% if item.description %} — {{ item.description }}{% endif %}</li>
+              {% else %}
+              <li>등록 내역 없음</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>    
+</body>
+</html>

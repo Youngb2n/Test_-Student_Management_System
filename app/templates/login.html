@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>로그인 | 학생정보시스템</title>
+  <title>로그인 | 교과과정인증정보시스템</title>
   <style>
     :root{ --bg:#0f172a; --card:#ffffff; --text:#111827; --muted:#6b7280; --primary:#2563eb; --primary-hover:#1d4ed8; --ring:rgba(37,99,235,.35); --radius:16px; }
     *{box-sizing:border-box} html,body{height:100%}
@@ -27,11 +27,8 @@
     .links a{color:var(--primary); text-decoration:none} .links a:hover{text-decoration:underline}
     .foot{margin-top:16px; color:#9ca3af; font-size:12px; text-align:center;}
 
-    /* --- 역할 탭 (순수 CSS) --- */
     .tab{display:none;}
-    .role-toggle{
-      display:flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px; margin:6px 0 14px;
-    }
+    .role-toggle{ display:flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px; margin:6px 0 14px;}
     .role-toggle label{
       flex:1; text-align:center; padding:10px 12px; border-radius:10px; cursor:pointer; user-select:none; font-weight:600; color:#334155;
       transition:background .15s, color .15s, box-shadow .15s;
@@ -44,7 +41,6 @@
     #tab-student:checked ~ .form--student{display:block;}
     #tab-admin:checked  ~ .form--admin {display:block;}
 
-    /* 다크 모드 */
     @media(prefers-color-scheme: dark){
       :root{ --card:#0b1220; --text:#e5e7eb; --muted:#9aa3b2; }
       .card{border-color:#1f2937}
@@ -59,12 +55,11 @@
     <div class="brand" aria-label="브랜드">
       <div class="brand__logo" aria-hidden="true"></div>
       <div>
-        <h1>학생정보시스템</h1>
+        <h1>교과과정인증정보시스템</h1>
         <p class="sub">역할을 선택하고 로그인하세요</p>
       </div>
     </div>
 
-    <!-- 탭 스위치 (라디오) -->
     <input class="tab" type="radio" name="roleTab" id="tab-student" checked>
     <input class="tab" type="radio" name="roleTab" id="tab-admin">
 
@@ -73,31 +68,21 @@
       <label role="tab" for="tab-admin"  aria-controls="admin-panel"   aria-selected="false">Admin</label>
     </div>
 
-    <!-- 학생용 폼 -->
-    <form class="form form--student" id="student-panel" method="post" action="#student-login" autocomplete="on">
+    <!-- 학생 폼 -->
+    <form class="form form--student" method="post" action="/login" autocomplete="on">
       <input type="hidden" name="role" value="student" />
+
       <label for="uid_s">아이디</label>
-      <input id="uid_s" name="username" type="text" placeholder="예: student01" required autofocus />
+      <input id="uid_s" name="username" type="text" placeholder="예: 홍길동" required autofocus />
 
-      <label for="pw_s">비밀번호</label>
-      <input id="pw_s" name="password" type="password" placeholder="비밀번호" required />
+      <label for="student_no">학번</label>
+      <input id="student_no" name="student_no" type="text" placeholder="예: 20250001" required />
 
-      <div class="row">
-        <label class="inline"><input type="checkbox" name="remember" /> 로그인 상태 유지</label>
-        <a href="#" style="font-size:13px; color:#2563eb; text-decoration:none;">비밀번호 찾기</a>
-      </div>
-
-      <button class="btn" type="submit">Login</button>
-
-      <div class="links">
-        <a href="#">회원가입</a>
-        <a href="#">도움말</a>
-      </div>
-      <p class="foot">© 2025 Student Management</p>
+      <button class="btn" type="submit">로그인</button>
     </form>
 
-    <!-- 관리자용 폼 -->
-    <form class="form form--admin" id="admin-panel" method="post" action="#admin-login" autocomplete="on">
+    <!-- 관리자 폼 -->
+    <form class="form form--admin" id="admin-panel" method="post" action="/login" autocomplete="on">
       <input type="hidden" name="role" value="admin" />
       <label for="uid_a">관리자 아이디</label>
       <input id="uid_a" name="username" type="text" placeholder="예: admin01" required />
