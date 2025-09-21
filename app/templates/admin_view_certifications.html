@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>관리자 | 인증제 조회</title>
+{% include '_head_style_stub.html' ignore missing %}
+</head>
+<body>
+<div class="layout">
+  {% set active='certifications' %}
+  {% include '_admin_sidebar.html' %}
+  <main class="main">
+    <div class="card">
+      <h1>인증제</h1>
+      <table>
+        <thead><tr><th>이름</th><th>설명</th></tr></thead>
+        <tbody>
+          {% for item in items %}
+            <tr><td>{{ item.name }}</td><td>{{ item.description or '' }}</td></tr>
+          {% else %}
+            <tr><td colspan="2">데이터 없음</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</body>
+</html>

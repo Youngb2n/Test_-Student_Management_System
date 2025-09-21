@@ -71,12 +71,11 @@
     <!-- 학생 폼 -->
     <form class="form form--student" method="post" action="/login" autocomplete="on">
       <input type="hidden" name="role" value="student" />
-
-      <label for="uid_s">아이디</label>
-      <input id="uid_s" name="username" type="text" placeholder="예: 홍길동" required autofocus />
+      <label for="name">이름</label>
+      <input id="name" name="name" type="text" placeholder="예: 홍길동" required />
 
       <label for="student_no">학번</label>
-      <input id="student_no" name="student_no" type="text" placeholder="예: 20250001" required />
+      <input id="student_no" name="student_no" type="text" placeholder="20250001" required />
 
       <button class="btn" type="submit">로그인</button>
     </form>

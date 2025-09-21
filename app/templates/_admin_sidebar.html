@@ -1,0 +1,101 @@
+<!-- app/templates/_admin_sidebar.html -->
+<aside class="side">
+  <div class="brand">관리자</div>
+  <nav class="nav">
+    <a href="/admin" class="{{ 'active' if active=='register' else '' }}">등록</a>
+    
+    <!-- 조회 섹션 -->
+    <div class="menu-section">
+      <div class="menu-header" onclick="toggleMenu(this)">
+        <span>조회</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="submenu">
+        <a href="/admin/view/students"         class="{{ 'active' if active=='students' else '' }}">학생</a>
+        <a href="/admin/view/curriculum"       class="{{ 'active' if active=='curriculum' else '' }}">교과인증과정</a>
+        <a href="/admin/view/certifications"   class="{{ 'active' if active=='certifications' else '' }}">인증제</a>
+        <a href="/admin/view/extracurriculars" class="{{ 'active' if active=='extracurriculars' else '' }}">비교과</a>
+      </div>
+    </div>
+    
+    <a href="/logout" style="margin-top:10px;">로그아웃</a>
+  </nav>
+</aside>
+
+<style>
+/* 기존 스타일에 추가 */
+.menu-section {
+  margin: 6px 0;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #cbd5e1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px; /* 등록과 같은 크기 */
+  font-weight: normal;
+  transition: background-color 0.2s;
+}
+
+.menu-header:hover {
+  background: #1f2937;
+  color: #fff;
+}
+
+.arrow {
+  font-size: 12px;
+  transition: transform 0.3s;
+}
+
+.submenu {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  margin-left: 12px;
+}
+
+.submenu.open {
+  max-height: 200px; /* 충분한 높이 */
+}
+
+.submenu a {
+  font-size: 14px;
+  color: #9ca3af;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+
+.submenu a:hover, .submenu a.active {
+  background: #374151;
+  color: #fff;
+}
+
+.menu-section.open .arrow {
+  transform: rotate(180deg);
+}
+</style>
+
+<script>
+function toggleMenu(element) {
+  const menuSection = element.parentElement;
+  const submenu = menuSection.querySelector('.submenu');
+  
+  menuSection.classList.toggle('open');
+  submenu.classList.toggle('open');
+}
+
+// 현재 페이지가 조회 하위 메뉴인 경우 자동으로 열기
+document.addEventListener('DOMContentLoaded', function() {
+  const activeSubmenuItem = document.querySelector('.submenu a.active');
+  if (activeSubmenuItem) {
+    const menuSection = activeSubmenuItem.closest('.menu-section');
+    const submenu = menuSection.querySelector('.submenu');
+    menuSection.classList.add('open');
+    submenu.classList.add('open');
+  }
+});
+</script>

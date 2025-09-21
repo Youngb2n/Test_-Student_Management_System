@@ -23,15 +23,13 @@ class User(SQLModel, table=True):
 
 class StudentProfile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    # User와 1:1 매핑 (user.id 고유)
-    user_id: int = Field(sa_column=Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), unique=True, nullable=False))
-    name: Optional[str] = Field(default=None, description="이름")
-    student_no: Optional[str] = Field(default=None, description="학번")
-    college: Optional[str] = Field(default=None, description="대학")
-    department: Optional[str] = Field(default=None, description="학과")
-    certification_track: Optional[str] = Field(default=None, description="인증제")
-    extracurricular_programs: Optional[str] = Field(default=None, description="비교과 프로그램(쉼표로 구분)")
-    consortium_curriculum_status: Optional[str] = Field(default=None, description="사업단 교육과정 이수현황")
+    name: str
+    student_no: str
+    college: Optional[str] = None
+    department: Optional[str] = None
+    # certification_track: str | None = None
+    # extracurricular_programs: str | None = None
+    # consortium_curriculum_status: str | None = None
 
 class CurriculumTrack(SQLModel, table=True):   # 교과인증과정
     id: Optional[int] = Field(default=None, primary_key=True)

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>학생 조회</title>
+  {% include '_head_style_stub.html' ignore missing %}
+</head>
+<body>
+  <div class="layout">
+    {% include "_admin_sidebar.html" %}
+    <main class="main">
+      <h1>학생 조회</h1>
+
+      <form method="get" action="/admin/view/students" style="margin:12px 0;">
+        <input type="text" name="kw" value="{{ kw }}" placeholder="이름/학번/대학/학과 검색" />
+        <button type="submit">검색</button>
+      </form>
+
+      <p>총 {{ total }} 명</p>
+      <table border="1" cellspacing="0" cellpadding="6">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>학번</th>
+            <th>대학</th>
+            <th>학과</th>
+            <!-- <th>인증제</th>
+            <th>비교과</th>
+            <th>사업단 이수</th> -->
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in rows %}
+          <tr>
+            <!-- <td>{{ p.id }}</td> -->
+            <td>{{ p.name }}</td>
+            <td>{{ p.student_no }}</td>
+            <td>{{ p.college or '' }}</td>
+            <td>{{ p.department or '' }}</td>
+            <!-- <td>{{ p.certification_track or '' }}</td>
+            <td>{{ p.extracurricular_programs or '' }}</td>
+            <td>{{ p.consortium_curriculum_status or '' }}</td> -->
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </main>
+  </div>
+</body>
+</html>
