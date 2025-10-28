@@ -1,50 +1,56 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8"/>
-  <title>학생 조회</title>
-  {% include '_head_style_stub.html' ignore missing %}
-</head>
-<body>
-  <div class="layout">
-    {% include "_admin_sidebar.html" %}
-    <main class="main">
-      <h1>학생 조회</h1>
+{% extends "admin_base.html" %}
+{% block title %}학생 목록 조회{% endblock %}
 
-      <form method="get" action="/admin/view/students" style="margin:12px 0;">
-        <input type="text" name="kw" value="{{ kw }}" placeholder="이름/학번/대학/학과 검색" />
-        <button type="submit">검색</button>
-      </form>
+{% block content %}
+<section class="section-card">
+  <header class="section-card__header">
+    <h1 class="section-card__title">학생 목록</h1>
+    <p class="section-card__desc">
+      등록된 학생 정보입니다. 상세보기 / 수정 / 삭제 기능은 추후 제공 예정입니다.
+    </p>
+  </header>
 
-      <p>총 {{ total }} 명</p>
-      <table border="1" cellspacing="0" cellpadding="6">
-        <thead>
-          <tr>
-            <th>이름</th>
-            <th>학번</th>
-            <th>대학</th>
-            <th>학과</th>
-            <!-- <th>인증제</th>
-            <th>비교과</th>
-            <th>사업단 이수</th> -->
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in rows %}
-          <tr>
-            <!-- <td>{{ p.id }}</td> -->
-            <td>{{ p.name }}</td>
-            <td>{{ p.student_no }}</td>
-            <td>{{ p.college or '' }}</td>
-            <td>{{ p.department or '' }}</td>
-            <!-- <td>{{ p.certification_track or '' }}</td>
-            <td>{{ p.extracurricular_programs or '' }}</td>
-            <td>{{ p.consortium_curriculum_status or '' }}</td> -->
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </main>
+  <div class="section-card__inner scroll-x">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>학번</th>
+          <th>이름</th>
+          <th>과정</th>
+          <th>단과대학</th>
+          <th>전공</th>
+          <th>재학상태</th>
+          <th>지도교수</th>
+          <th>최근수정일</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td>{{ s.student_no }}</td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.degree }}</td>
+          <td>{{ s.college }}</td>
+          <td>{{ s.major }}</td>
+          <td>{{ s.academic_status }}</td>
+          <td>{{ s.advisor_name }}</td>
+          <td>{{ (s.updated_at or s.created_at).strftime("%Y-%m-%d") if s.updated_at else "" }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align:center; color:#64748b;">
+            등록된 학생이 없습니다.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-</body>
-</html>
+
+  <footer class="section-card__footer">
+    <p class="text-dim">
+      ※ 학생 상세 정보(개인정보, 휴학 이력 등) 조회 / 수정 / 삭제 기능은 추후 제공 예정입니다.
+    </p>
+  </footer>
+</section>
+{% endblock %}

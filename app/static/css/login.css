@@ -1,0 +1,90 @@
+/* app/static/css/login.css*/
+
+:root{
+  /* Light default */
+  --bg:#f3f4f6;          /* 페이지 배경 */
+  --card:#ffffff;        /* 카드 배경 */
+  --text:#111827;        /* 본문 텍스트 */
+  --muted:#6b7280;       /* 보조 텍스트 */
+  --primary:#2563eb;     /* 포인트 */
+  --primary-hover:#1d4ed8;
+  --ring:rgba(37,99,235,.25);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 600px at 10% 0%, #e5e7eb 0%, transparent 60%),
+    radial-gradient(1000px 500px at 100% 100%, #93c5fd55 0%, transparent 55%),
+    var(--bg);
+  display:grid; place-items:center; min-height:100dvh; padding:24px;
+}
+.card{
+  width:100%; max-width:380px; background:var(--card); border-radius:var(--radius);
+  padding:28px 24px 22px;
+  box-shadow:0 20px 60px rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.05);
+  border:1px solid #e5e7eb;
+}
+/* 나머지는 기존과 동일 */
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+.brand__logo{width:36px; height:36px; border-radius:10px;
+  background:linear-gradient(135deg,#60a5fa,#2563eb);
+  box-shadow:0 6px 16px rgba(37,99,235,.35);
+}
+h1{font-size:20px; margin:0 0 6px;}
+.sub{color:var(--muted); font-size:13px; margin:0 0 18px;}
+label{display:block; font-size:13px; margin:12px 0 6px;}
+input[type="text"],input[type="password"]{
+  width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:12px;
+  outline:none; transition:box-shadow .15s,border-color .15s,transform .02s; font-size:15px; background:#fff; color:#111827;
+}
+input::placeholder{color:#9ca3af}
+input:focus{border-color:var(--primary); box-shadow:0 0 0 5px var(--ring);}
+.row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:10px 0 16px;}
+.row label.inline{display:flex; align-items:center; gap:8px; margin:0; color:#374151; font-size:13px;}
+.btn{
+  width:100%; padding:12px 14px; border:none; border-radius:12px; background:var(--primary);
+  color:#fff; font-weight:600; font-size:15px; cursor:pointer;
+  box-shadow:0 10px 24px rgba(37,99,235,.25); transition:transform .02s, background .15s;
+}
+.btn:active{transform:translateY(1px)}
+.btn:hover{background:var(--primary-hover)}
+.links{display:flex; justify-content:space-between; margin-top:12px; font-size:13px;}
+.link{color:var(--primary); text-decoration:none}
+.link:hover{text-decoration:underline}
+.foot{margin-top:16px; color:#6b7280; font-size:12px; text-align:center;}
+
+.tab{display:none;}
+.role-toggle{
+  display:flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb;
+  border-radius:12px; padding:6px; margin:6px 0 14px;
+}
+.role-toggle label{
+  flex:1; text-align:center; padding:10px 12px; border-radius:10px; cursor:pointer; user-select:none; font-weight:600; color:#334155;
+  transition:background .15s, color .15s, box-shadow .15s;
+}
+#tab-student:checked ~ .role-toggle label[for="tab-student"],
+#tab-admin:checked  ~ .role-toggle label[for="tab-admin"]{
+  background:var(--primary); color:#fff; box-shadow:0 8px 20px rgba(37,99,235,.25);
+}
+.form{display:none;}
+#tab-student:checked ~ .form--student{display:block;}
+#tab-admin:checked  ~ .form--admin {display:block;}
+
+.alert{margin:8px 0 0; padding:10px 12px; border-radius:10px; font-size:13px;}
+.alert--error{background:#fee2e2; color:#991b1b; border:1px solid #fecaca}
+
+/* Dark mode 보조 */
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f172a; --card:#0b1220; --text:#e5e7eb; --muted:#9aa3b2;
+    --ring:rgba(37,99,235,.35);
+  }
+  input[type="text"],input[type="password"]{background:#0f172a; border-color:#1f2937; color:var(--text);}
+  .role-toggle{background:#0f172a; border-color:#1f2937;}
+  .role-toggle label{color:#cbd5e1;}
+  .alert--error{background:#451a1a; color:#fecaca; border-color:#7f1d1d;}
+}

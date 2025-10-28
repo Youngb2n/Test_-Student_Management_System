@@ -1,0 +1,369 @@
+{% extends "admin_base.html" %}
+{% block title %}비교과 프로그램 등록{% endblock %}
+
+{% block content %}
+<form class="admin-form" method="post" action="/admin/register/extracurricular">
+
+  {# ────────────────────────────────
+     1. 프로그램 기본 정보
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h1 class="section-card__title">프로그램 기본 정보</h1>
+    </header>
+
+    <div class="section-card__inner">
+
+      <!-- 프로그램명 -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            프로그램명
+            <span class="field-required">*</span>
+          </label>
+          <input
+            class="input-control"
+            type="text"
+            name="program_name"
+            placeholder="예: SNU AI.MED talks - 의료AI 세미나"
+            required
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            프로그램 유형
+            <span class="field-required">*</span>
+          </label>
+          <select
+            class="input-control"
+            name="program_type"
+            required
+          >
+            <option value="SNU AI.MED talks 시리즈">SNU AI.MED talks 시리즈</option>
+            <option value="기업 견학">기업 견학</option>
+            <option value="병원 견학">병원 견학</option>
+            <option value="교육 및 세미나">교육 및 세미나</option>
+            <option value="성과교류회">성과교류회</option>
+            <option value="박람회">박람회</option>
+            <option value="학회">학회</option>
+            <option value="경진대회">경진대회</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 개최 연도 / 개최 월 -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            개최 연도
+            <span class="field-required">*</span>
+          </label>
+
+          <div class="custom-dropdown-wrapper fullwidth">
+            <button
+              type="button"
+              class="custom-dropdown-trigger"
+              data-target="program_open_year_dropdown"
+            >
+              <span
+                class="custom-dropdown-label"
+                id="program_open_year_label"
+              >
+                {{ current_year }}
+              </span>
+              <span class="custom-dropdown-arrow">▼</span>
+            </button>
+
+            <div
+              class="custom-dropdown-menu"
+              id="program_open_year_dropdown"
+            >
+              {% for y in range(2000,2101) %}
+                <div
+                  class="custom-dropdown-option"
+                  data-value="{{ y }}"
+                >
+                  {{ y }}
+                </div>
+              {% endfor %}
+            </div>
+
+            <input
+              type="hidden"
+              class="custom-dropdown-hidden"
+              name="open_year"
+              id="program_open_year"
+              value="{{ current_year }}"
+              required
+            />
+          </div>
+
+          <div class="field-hint-block">연도는 직접 타이핑도 가능</div>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            개최 월
+            <span class="field-required">*</span>
+          </label>
+
+          <div class="custom-dropdown-wrapper fullwidth">
+            <button
+              type="button"
+              class="custom-dropdown-trigger"
+              data-target="program_open_month_dropdown"
+            >
+              <span
+                class="custom-dropdown-label"
+                id="program_open_month_label"
+              >
+                1
+              </span>
+              <span class="custom-dropdown-arrow">▼</span>
+            </button>
+
+            <div
+              class="custom-dropdown-menu"
+              id="program_open_month_dropdown"
+            >
+              {% for m in range(1,13) %}
+                <div
+                  class="custom-dropdown-option"
+                  data-value="{{ m }}"
+                >
+                  {{ m }}
+                </div>
+              {% endfor %}
+            </div>
+
+            <input
+              type="hidden"
+              class="custom-dropdown-hidden"
+              name="open_month"
+              id="program_open_month"
+              value="1"
+              required
+            />
+          </div>
+
+          <div class="field-hint-block">1~12 중 선택</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     2. 교육과정 매핑 / 환산점수
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h2 class="section-card__title">교육과정 매핑 / 환산점수</h2>
+    </header>
+
+    <div class="section-card__inner" id="program_map_block">
+
+      <div
+        class="curriculum-map-rows"
+        id="program_curriculum_rows_container"
+      >
+
+        <!-- 매핑 카드 1세트 (기본 1개 렌더) -->
+        <div class="subsection-card program-map-card">
+          <div class="form-row">
+            <!-- 교육과정 -->
+            <div class="field flex-1">
+              <label class="field-label">
+                교육과정
+              </label>
+              <select
+                class="input-control"
+                name="curriculum_id"
+              >
+                {% for cur in curricula %}
+                  <option value="{{ cur.id }}">
+                    {{ cur.course_name }} ({{ cur.program_type }})
+                  </option>
+                {% endfor %}
+                <option value="">(미해당)</option>
+              </select>
+            </div>
+
+            <!-- 환산 점수/가중치 -->
+            <div class="field flex-1">
+              <label class="field-label">
+                환산 점수/가중치
+              </label>
+              <input
+                class="input-control"
+                type="number"
+                step="0.1"
+                min="0"
+                name="recognized_credit_ratio"
+                placeholder="예: 1.0"
+              />
+              <div class="field-hint-block">
+                해당 교육과정에서 이 프로그램 1회 참여 시 인정되는 점수(환산값)
+              </div>
+            </div>
+
+            <!-- 삭제 버튼 -->
+            <div class="field flex-1" style="align-self:flex-end;">
+              <button
+                type="button"
+                class="btn-ghost-danger btn-progmap-remove"
+                style="margin-top:1.6rem;"
+              >
+                🗑 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- /program-map-card -->
+
+      </div><!-- /#program_curriculum_rows_container -->
+
+      <div class="form-actions small">
+        <button
+          type="button"
+          class="btn-ghost-add"
+          id="btn_progmap_add"
+        >
+          ＋ 교육과정 매핑 추가
+        </button>
+      </div>
+
+      <div class="field-hint-block">
+        여러 교육과정에 동시에 매핑 가능. 각 과정별로 인정 점수(환산값)를 개별 등록합니다.
+      </div>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     3. 참가자 등록 (추후 개발)
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h2 class="section-card__title">
+        참가자 등록
+        <span style="font-size:.8rem; font-weight:400; color:#64748b;">
+          (추후 개발 예정)
+        </span>
+      </h2>
+    </header>
+
+    <div class="section-card__inner">
+      <div class="field-hint-block" style="color:#64748b;">
+        프로그램 참가 학생을 연결해서 ‘참여 실적’을 자동 집계할 수 있도록
+        여기에 학생 검색/추가 UI가 붙을 예정입니다.
+        지금은 아직 저장 안 됩니다.
+      </div>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     4. 액션 버튼
+     ──────────────────────────────── #}
+  {% include "partials/_form_actions.html" %}
+</form>
+
+
+<script type="module">
+  import { initCustomDropdowns } from "{{ request.url_for('static', path='js/admin_form.js') }}";
+
+  // ---------------------------
+  // 1) 커스텀 드롭다운(연도/월) 초기화
+  // ---------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    initCustomDropdowns(document);
+  });
+
+  // ---------------------------
+  // 2) 교육과정 매핑 행 추가/삭제
+  // ---------------------------
+  let progMapRowIdx = 1;
+
+  function addProgMapRow() {
+    const container = document.getElementById("program_curriculum_rows_container");
+    if (!container) return;
+
+    const idx = progMapRowIdx++;
+    const wrapper = document.createElement("div");
+    wrapper.className = "subsection-card program-map-card";
+
+    wrapper.innerHTML = `
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            교육과정
+          </label>
+          <select
+            class="input-control"
+            name="curriculum_id"
+          >
+            {% for cur in curricula %}
+              <option value="{{ cur.id }}">
+                {{ cur.course_name }} ({{ cur.program_type }})
+              </option>
+            {% endfor %}
+            <option value="">(미해당)</option>
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            환산 점수/가중치
+          </label>
+          <input
+            class="input-control"
+            type="number"
+            step="0.1"
+            min="0"
+            name="recognized_credit_ratio"
+            placeholder="예: 1.0"
+          />
+          <div class="field-hint-block">
+            해당 교육과정에서 이 프로그램 1회 참여 시 인정되는 점수(환산값)
+          </div>
+        </div>
+
+        <div class="field flex-1" style="align-self:flex-end;">
+          <button
+            type="button"
+            class="btn-ghost-danger btn-progmap-remove"
+            style="margin-top:1.6rem;"
+          >
+            🗑 삭제
+          </button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(wrapper);
+  }
+
+  function onProgMapRowsClick(e) {
+    if (e.target.classList.contains("btn-progmap-remove")) {
+      const card = e.target.closest(".program-map-card");
+      const allCards = document.querySelectorAll(".program-map-card");
+      if (card && allCards.length > 1) {
+        card.remove();
+      }
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document
+      .getElementById("btn_progmap_add")
+      ?.addEventListener("click", addProgMapRow);
+
+    document
+      .getElementById("program_curriculum_rows_container")
+      ?.addEventListener("click", onProgMapRowsClick);
+  });
+</script>
+{% endblock %}

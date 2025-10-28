@@ -1,0 +1,21 @@
+<!-- /app/templates/admin_base.html-->
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}관리자 페이지{% endblock %}</title>
+
+  <link rel="stylesheet" href="{{ request.url_for('static', path='css/admin.css') }}">
+  <script defer src="{{ request.url_for('static', path='js/admin.js') }}"></script>
+</head>
+<body class="admin-page">
+  <div class="layout">
+    {% include "_admin_sidebar.html" %}
+
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{# app/templates/partials/_section_card.html #}
+{% macro section_card(title, heading_level=1) -%}
+<section class="section-card">
+  <header class="section-card__header">
+    <h{{ heading_level }} class="section-card__title">{{ title }}</h{{ heading_level }}>
+  </header>
+
+  {{ caller() }}
+</section>
+{%- endmacro %}

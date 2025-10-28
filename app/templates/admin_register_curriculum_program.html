@@ -1,0 +1,508 @@
+{% extends "admin_base.html" %}
+{% block title %}교육과정 등록{% endblock %}
+
+{% block content %}
+{% from "partials/_section_card.html" import section_card %}
+
+<form class="admin-form" method="post" action="/admin/register/curriculum">
+
+  {# ────────────────────────────────
+     1. 교육과정 기본 정보 (CurriculumProgram)
+     ──────────────────────────────── #}
+  {% call section_card("교육과정 기본 정보", 1) %}
+  <div class="section-card__inner">
+
+    <!-- 프로그램 유형 / 과정명 -->
+    <div class="form-row">
+      <div class="field flex-1">
+        <label class="field-label">
+          프로그램 유형
+          <span class="field-required">*</span>
+        </label>
+        <select name="program_type" class="input-control" required>
+          <option value="">선택</option>
+          <option>인증제</option>
+          <option>교과인증과정</option>
+          <option>교과과정</option>
+        </select>
+      </div>
+
+      <div class="field flex-1">
+        <label class="field-label">
+          과정명
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          type="text"
+          name="course_name"
+          placeholder="예: AI융합인재양성과정"
+          required
+        />
+      </div>
+    </div>
+
+    <!-- 학위 구분 / 학과 구분 -->
+    <div class="form-row">
+      <div class="field flex-1">
+        <label class="field-label">
+          학위 구분
+          <span class="field-required">*</span>
+        </label>
+        <select name="degree_type" class="input-control" required>
+          <option value="">선택</option>
+          <option>학부</option>
+          <option>대학원</option>
+          <option>통합</option>
+        </select>
+      </div>
+
+      <div class="field flex-1">
+        <label class="field-label">
+          학과 구분
+          <span class="field-required">*</span>
+        </label>
+        <select name="department_type" class="input-control" required>
+          <option value="">선택</option>
+          <option>의과대학</option>
+          <option>공과대학</option>
+          <option>첨단융합학부</option>
+          <option>통합</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 개설 (연도+학기 한 줄에) -->
+    <div class="form-row">
+      <div class="field flex-1">
+        <label class="field-label">개설연도</label>
+
+        <div class="inline-pair">
+          <!-- 연도 -->
+          <div class="inline-field">
+            <div class="custom-dropdown-wrapper miniwidth">
+              <button
+                type="button"
+                class="custom-dropdown-trigger"
+                data-target="open_year_menu"
+              >
+                <span class="custom-dropdown-label">미입력</span>
+                <span class="custom-dropdown-arrow">▼</span>
+              </button>
+
+              <div class="custom-dropdown-menu" id="open_year_menu">
+                <div class="custom-dropdown-option" data-value="">미입력</div>
+                {% for y in range(2000,2101) %}
+                  <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                {% endfor %}
+              </div>
+
+              <input
+                type="hidden"
+                name="open_year"
+                class="custom-dropdown-hidden"
+                value=""
+              />
+            </div>
+          </div>
+
+          <!-- 학기 -->
+          <div class="inline-field">
+            <select name="open_semester" class="input-control miniwidth">
+              <option value="">학기</option>
+              {% for s in option_map.semester_simple %}
+                <option value="{{ s.value if s.value is defined else s }}">
+                  {{ s.label if s.label is defined else s }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 폐지 (연도+학기 한 줄에) -->
+    <div class="form-row">
+      <div class="field flex-1">
+        <label class="field-label">폐지연도</label>
+
+        <div class="inline-pair">
+          <!-- 연도 -->
+          <div class="inline-field">
+            <div class="custom-dropdown-wrapper miniwidth">
+              <button
+                type="button"
+                class="custom-dropdown-trigger"
+                data-target="close_year_menu"
+              >
+                <span class="custom-dropdown-label">미입력</span>
+                <span class="custom-dropdown-arrow">▼</span>
+              </button>
+
+              <div class="custom-dropdown-menu" id="close_year_menu">
+                <div class="custom-dropdown-option" data-value="">미입력</div>
+                {% for y in range(2000,2101) %}
+                  <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                {% endfor %}
+              </div>
+
+              <input
+                type="hidden"
+                name="close_year"
+                class="custom-dropdown-hidden"
+                value=""
+              />
+            </div>
+          </div>
+
+          <!-- 학기 -->
+          <div class="inline-field">
+            <select name="close_semester" class="input-control miniwidth">
+              <option value="">학기</option>
+              {% for s in option_map.semester_simple %}
+                <option value="{{ s.value if s.value is defined else s }}">
+                  {{ s.label if s.label is defined else s }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 소속 사업단 -->
+    <div class="form-row">
+      <div class="field flex-1">
+        <label class="field-label">소속 사업단 주관사업</label>
+        <select
+          name="business_initiative_id"
+          class="input-control"
+        >
+          <option value="">선택</option>
+          {% for biz in initiatives %}
+            <option value="{{ biz.id }}">{{ biz.project_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+  </div>
+  {% endcall %}
+
+
+  {# ────────────────────────────────
+     2. 교육과정 이수조건 (ProgramRequirement)
+     ──────────────────────────────── #}
+  {% call section_card("교육과정 이수조건", 2) %}
+  <div class="section-card__inner" id="requirements_container">
+    <div class="requirement-card">
+      <!-- 적용 대학 / 적용 학위 -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            적용 대학
+            <span class="field-required">*</span>
+          </label>
+          <select name="college_scope" class="input-control" required>
+            <option value="의과대학">의과대학</option>
+            <option value="그 외">그 외</option>
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            적용 학위
+            <span class="field-required">*</span>
+          </label>
+          <select name="degree_scope" class="input-control" required>
+            <option value="학부">학부</option>
+            <option value="석사">석사</option>
+            <option value="박사">박사</option>
+            <option value="대학원생">대학원생</option>
+            <option value="통합">통합</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 요구량들 -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            교과 학점 요구량
+            <span class="field-required">*</span>
+          </label>
+          <input
+            class="input-control"
+            type="number"
+            name="required_credit"
+            min="0"
+            step="0.5"
+            placeholder="예: 12"
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            비교과 환산점수 요구치
+            <span class="field-required">*</span>
+          </label>
+          <input
+            class="input-control"
+            type="number"
+            name="total_converted_required"
+            min="0"
+            step="0.1"
+            placeholder="예: 20"
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            인턴십 환산점수 요구치
+          </label>
+          <input
+            class="input-control"
+            type="number"
+            name="total_internship_required"
+            min="0"
+            step="0.1"
+            placeholder="예: 5"
+          />
+        </div>
+      </div>
+
+      <!-- 비교과 유형별 최소참석 횟수 -->
+      <div class="subsection-card">
+        <div class="subsection-card__header">
+          <strong>비교과 유형별 최소참석 횟수</strong>
+        </div>
+
+        <div class="form-row">
+          <div class="field flex-1">
+            <label class="field-label">AI.MED Talks</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_ai_med_talks"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">기업 견학</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_company_visit"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">병원 견학</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_hospital_visit"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field flex-1">
+            <label class="field-label">세미나/교육</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_seminar"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">성과교류회</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_exchange_forum"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">박람회</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_expo"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field flex-1">
+            <label class="field-label">학회</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_academic_conf"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">경진대회</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_competition"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+          <div class="field flex-1">
+            <label class="field-label">기타</label>
+            <input
+              class="input-control"
+              type="number"
+              name="min_etc"
+              min="0"
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 삭제 버튼 -->
+      <div class="form-actions small">
+        <button
+          type="button"
+          class="btn-ghost-danger btn-requirement-remove"
+        >
+          🗑 삭제
+        </button>
+      </div>
+    </div>
+
+    <!-- 조건 추가 버튼 -->
+    <div class="form-actions small">
+      <button
+        type="button"
+        class="btn-ghost-add"
+        id="btn_requirement_add"
+      >
+        ＋ 조건 추가
+      </button>
+    </div>
+  </div>
+  {% endcall %}
+
+  {% include "partials/_form_actions.html" %}
+</form>
+
+<script type="module">
+  import {
+    initCustomDropdowns,
+    initCurriculumRequirements,
+    bindRequirementSkipToggle,
+  } from "{{ request.url_for('static', path='js/admin_form.js') }}";
+
+  // --- 초기화 즉시 실행 ---
+  initCustomDropdowns(document);
+  initCurriculumRequirements();
+  bindRequirementSkipToggle();
+
+
+  // 성공 alert (?success=1)
+  {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "1") {
+      alert("교육과정이 성공적으로 등록되었습니다.");
+      history.replaceState(null, "", window.location.pathname);
+    }
+  }
+
+  // --- 제출 직전 정리 로직 ---
+const form = document.querySelector("form.admin-form");
+
+if (form) {
+  form.addEventListener("submit", () => {
+    // =========================
+    // 1) 개설(OPEN) 관련 정리
+    // =========================
+    const openYearInput     = form.querySelector('input[name="open_year"]');
+    const openSemesterInput = form.querySelector('select[name="open_semester"]');
+
+    if (openYearInput) {
+      const oy = openYearInput.value.trim();
+      const os = openSemesterInput ? openSemesterInput.value.trim() : "";
+
+      if (oy === "") {
+        // 개설연도 미입력 => 개설학기도 같이 보내지 말자
+        openYearInput.disabled = true;
+        if (openSemesterInput) {
+          openSemesterInput.disabled = true;
+        }
+      } else {
+        // 개설연도는 있는데 학기를 안 골랐다면 학기만 막는다 (학기 nullable일 때만 유효)
+        if (openSemesterInput && os === "") {
+          openSemesterInput.disabled = true;
+        }
+      }
+    }
+
+    // =========================
+    // 2) 폐지(CLOSE) 관련 정리
+    // =========================
+    const closeYearInput     = form.querySelector('input[name="close_year"]');
+    const closeSemesterInput = form.querySelector('select[name="close_semester"]');
+
+    if (closeYearInput) {
+      const cy = closeYearInput.value.trim();
+      const cs = closeSemesterInput ? closeSemesterInput.value.trim() : "";
+
+      if (cy === "") {
+        // 폐지연도 미입력 => 폐지학기도 같이 보내지 말자
+        closeYearInput.disabled = true;
+        if (closeSemesterInput) {
+          closeSemesterInput.disabled = true;
+        }
+      } else {
+        // 폐지연도는 있는데 학기만 비어 있으면 학기만 막는다 (학기 nullable 전제)
+        if (closeSemesterInput && cs === "") {
+          closeSemesterInput.disabled = true;
+        }
+      }
+    }
+
+    // =========================
+    // 3) requirement 숫자 필드 기본값 세팅
+    // =========================
+    const numericSelectors = [
+      'input[name="required_credit"]',
+      'input[name="total_converted_required"]',
+      'input[name="total_internship_required"]',
+      'input[name="min_ai_med_talks"]',
+      'input[name="min_company_visit"]',
+      'input[name="min_hospital_visit"]',
+      'input[name="min_seminar"]',
+      'input[name="min_exchange_forum"]',
+      'input[name="min_expo"]',
+      'input[name="min_academic_conf"]',
+      'input[name="min_competition"]',
+      'input[name="min_etc"]'
+    ].join(',');
+
+    form.querySelectorAll(numericSelectors).forEach(inp => {
+      if (inp.value.trim() === "") {
+        inp.value = "0";
+      }
+    });
+  });
+}
+</script>
+{% endblock %}

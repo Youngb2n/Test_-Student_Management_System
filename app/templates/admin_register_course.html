@@ -1,0 +1,540 @@
+{% extends "admin_base.html" %}
+{% block title %}교과목 등록{% endblock %}
+
+{% block content %}
+<form class="admin-form" method="post" action="/admin/register/course">
+
+  {# ────────────────────────────────
+     1. 교육과정 매핑 (CurriculumCourseMap)
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h1 class="section-card__title">교육과정 매핑</h1>
+    </header>
+
+    <div class="section-card__inner" id="curriculum_map_block">
+      <div class="curriculum-map-rows" id="curriculum_map_rows_container">
+
+        <!-- === 매핑 카드 1세트 (복제 템플릿) === -->
+        <div class="subsection-card curriculum-map-card">
+
+          <!-- 교육과정 / 필수 여부 -->
+          <div class="form-row">
+            <div class="field flex-1">
+              <label class="field-label">
+                교육과정
+                <span class="field-required">*</span>
+              </label>
+
+              {# NOTE: 여기서 cur.course_name 으로 표시 #}
+              <select name="curriculum_id" class="input-control" required>
+                {% for cur in curricula %}
+                  <option value="{{ cur.id }}">{{ cur.course_name }}</option>
+                {% endfor %}
+                <option value="INTERN">인턴십</option>
+                <option value="ETC">기타</option>
+                <option value="">미해당</option>
+              </select>
+            </div>
+
+            <div class="field flex-1">
+              <label class="field-label">
+                필수 여부
+                <span class="field-required">*</span>
+              </label>
+              <select name="required_flag" class="input-control" required>
+                <option value="필수">필수</option>
+                <option value="선택" selected>선택</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 최초 인정 / 최종 인정 -->
+          <div class="form-row">
+
+            <!-- 최초 인정 -->
+            <div class="field flex-1">
+              <label class="field-label">
+                최초 인정
+                <span class="field-required">*</span>
+              </label>
+
+              <div class="inline-pair">
+                <!-- 최초 인정 연도 -->
+                <div class="inline-field">
+                  <div class="custom-dropdown-wrapper">
+                    <button
+                      type="button"
+                      class="custom-dropdown-trigger"
+                      data-target="initial_year_dropdown_0">
+                      <span class="custom-dropdown-label">{{ current_year }}</span>
+                      <span class="custom-dropdown-arrow">▼</span>
+                    </button>
+
+                    <div class="custom-dropdown-menu" id="initial_year_dropdown_0">
+                      {% for y in range(2000,2101) %}
+                        <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                      {% endfor %}
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="initial_year"
+                      class="custom-dropdown-hidden"
+                      value="{{ current_year }}"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <!-- 최초 인정 학기 -->
+                <div class="inline-field">
+                  <select name="initial_semester" class="input-control" required>
+                    <option value="">학기</option>
+                    <option value="1학기">1학기</option>
+                    <option value="2학기">2학기</option>
+                    <option value="여름">여름</option>
+                    <option value="겨울">겨울</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 최종 인정 -->
+            <div class="field flex-1">
+              <label class="field-label">
+                최종 인정
+              </label>
+
+              <div class="inline-pair">
+                <!-- 최종 인정 연도 -->
+                <div class="inline-field">
+                  <div class="custom-dropdown-wrapper">
+                    <button
+                      type="button"
+                      class="custom-dropdown-trigger"
+                      data-target="final_year_dropdown_0">
+                      <span class="custom-dropdown-label">미입력</span>
+                      <span class="custom-dropdown-arrow">▼</span>
+                    </button>
+
+                    <div class="custom-dropdown-menu" id="final_year_dropdown_0">
+                      <div class="custom-dropdown-option" data-value="">미입력</div>
+                      {% for y in range(2000,2101) %}
+                        <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                      {% endfor %}
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="final_year"
+                      class="custom-dropdown-hidden"
+                      value=""
+                    />
+                  </div>
+                </div>
+
+                <!-- 최종 인정 학기 -->
+                <div class="inline-field">
+                  <select name="final_semester" class="input-control">
+                    <option value="">학기</option>
+                    <option value="1학기">1학기</option>
+                    <option value="2학기">2학기</option>
+                    <option value="여름">여름</option>
+                    <option value="겨울">겨울</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 카드 하단 삭제 버튼 -->
+          <div class="form-actions small">
+            <button type="button" class="btn-ghost-danger btn-map-remove">🗑 삭제</button>
+          </div>
+        </div> <!-- /curriculum-map-card (템플릿 0) -->
+
+      </div><!-- /#curriculum_map_rows_container -->
+
+      <!-- 매핑 추가 버튼 -->
+      <div class="form-actions small">
+        <button type="button" class="btn-ghost-add" id="btn_map_add">＋ 매핑 추가</button>
+      </div>
+
+      <p class="field-hint-block" style="margin-top:.5rem;">
+        한 교과목이 여러 교육과정에 서로 다른 기간/필수 여부로 인정되면 "매핑 추가"로 여러 개 입력하세요.
+      </p>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     2. 교과목 기본 정보 (Course)
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h2 class="section-card__title">교과목 기본 정보</h2>
+    </header>
+
+    <div class="section-card__inner">
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            교과목 코드
+            <span class="field-required">*</span>
+          </label>
+          <input
+            type="text"
+            name="course_code"
+            class="input-control"
+            placeholder="예: MEDI7001"
+            required
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            교과목명(국문)
+            <span class="field-required">*</span>
+          </label>
+          <input
+            type="text"
+            name="course_name_ko"
+            class="input-control"
+            placeholder="예: 의료AI개론"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            교과목명(영문)
+          </label>
+          <input
+            type="text"
+            name="course_name_en"
+            class="input-control"
+            placeholder="예: Introduction to Medical AI"
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            과정
+            <span class="field-required">*</span>
+          </label>
+          <select name="degree_level" class="input-control" required>
+            <option value="">선택</option>
+            <option>학사</option>
+            <option>대학원</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            학년
+            <span class="field-required">*</span>
+          </label>
+          <select name="grade_level" class="input-control" required>
+            {% for n in range(0,7) %}
+              <option value="{{ n }}">{{ n }}학년</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            개설학기
+            <span class="field-required">*</span>
+          </label>
+          <select name="offering_semester" class="input-control" required>
+            <option value="">선택</option>
+            <option>1학기</option>
+            <option>2학기</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            개설주기
+            <span class="field-required">*</span>
+          </label>
+          <select name="offering_cycle" class="input-control" required>
+            <option value="">선택</option>
+            <option>1년</option>
+            <option>2년</option>
+            <option>기타</option>
+          </select>
+        </div>
+
+        <div class="field flex-1"></div>
+      </div>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     3. 성적 · 학점 · 시수
+     (너 기존 파일에 이 섹션 더 길면 그대로 이어 붙이면 돼)
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h2 class="section-card__title">성적 · 학점 · 시수</h2>
+    </header>
+
+    <div class="section-card__inner">
+      <!-- 성적 부여 방식 -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            성적 부여 방식
+            <span class="field-required">*</span>
+          </label>
+          <select name="grading_scheme" class="input-control" required>
+            <option value="">선택</option>
+            <option value="A-F">A~F</option>
+            <option value="S/U">S / U</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 학점 / 강의 시수 / 실습 시수 한 줄 -->
+      <div class="form-row nowrap">
+        <div class="field flex-1">
+          <label class="field-label">
+            학점
+            <span class="field-required">*</span>
+          </label>
+          <select name="credit" class="input-control" required>
+            {% for n in range(0,7) %}
+              <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            강의 시수
+            <span class="field-required">*</span>
+          </label>
+          <select name="lecture_hours" class="input-control" required>
+            {% for n in range(0,7) %}
+              <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            실습 시수
+            <span class="field-required">*</span>
+          </label>
+          <select name="lab_hours" class="input-control" required>
+            {% for n in range(0,7) %}
+              <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  {# ────────────────────────────────
+     4. 운영 정보
+     ──────────────────────────────── #}
+  <section class="section-card">
+    <header class="section-card__header">
+      <h2 class="section-card__title">운영 정보</h2>
+    </header>
+
+    <div class="section-card__inner">
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            개설 주체 학과
+            <span class="field-required">*</span>
+          </label>
+          <input
+            type="text"
+            name="department_name"
+            id="department_input"
+            class="input-control"
+            placeholder="예: 의료정보학과"
+            required
+          />
+          <div class="field-hint-block">
+            공백 / 특수문자 입력 시 등록 차단 예정
+          </div>
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            담당 교수명
+            <span class="field-required">*</span>
+          </label>
+          <input
+            type="text"
+            name="instructor_name"
+            class="input-control"
+            placeholder="예: 김교수"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">수강 정원</label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            name="capacity"
+            class="input-control"
+            placeholder="예: 30"
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">현재 수강 인원</label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            name="enrollment"
+            class="input-control"
+            placeholder="예: 28"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# 저장 / 리셋 버튼 공통 #}
+  <footer class="form-actions">
+    <button class="btn-primary" type="submit">저장</button>
+    <button class="btn-secondary" type="reset">리셋</button>
+  </footer>
+
+</form>
+
+<script type="module">
+import { initCustomDropdowns } from "{{ request.url_for('static', path='js/admin_form.js') }}";
+
+let mapRowIdx = 1;
+
+// 매핑 행 추가
+function addMapRow() {
+  const container = document.getElementById("curriculum_map_rows_container");
+  if (!container) return;
+
+  const idx = mapRowIdx++;
+  const firstCard = container.querySelector(".curriculum-map-card");
+  if (!firstCard) return;
+
+  const clone = firstCard.cloneNode(true);
+
+  // 드롭다운 id/for/data-target 숫자 치환
+  // initial_year_dropdown_0 -> _{idx}
+  clone.querySelectorAll(".custom-dropdown-trigger").forEach(btn => {
+    const oldTarget = btn.getAttribute("data-target"); // e.g. initial_year_dropdown_0
+    if (oldTarget && oldTarget.endsWith("_0")) {
+      const newTarget = oldTarget.replace(/_0$/, `_${idx}`);
+      btn.setAttribute("data-target", newTarget);
+    }
+  });
+  clone.querySelectorAll(".custom-dropdown-menu").forEach(menu => {
+    const oldId = menu.id; // e.g. initial_year_dropdown_0
+    if (oldId && oldId.endsWith("_0")) {
+      const newId = oldId.replace(/_0$/, `_${idx}`);
+      menu.id = newId;
+    }
+  });
+
+  // 값 초기화
+  // curriculum / required_flag -> 첫 옵션
+  const curriculumSel = clone.querySelector('select[name="curriculum_id"]');
+  if (curriculumSel) curriculumSel.selectedIndex = 0;
+
+  const reqFlagSel = clone.querySelector('select[name="required_flag"]');
+  if (reqFlagSel) reqFlagSel.value = "선택";
+
+  // 최초 인정: 연도/학기 초기화
+  const initYearHidden = clone.querySelector('input[name="initial_year"]');
+  const initYearLabel  = clone.querySelector('.custom-dropdown-trigger[data-target^="initial_year_dropdown_"] .custom-dropdown-label');
+  if (initYearHidden) initYearHidden.value = "{{ current_year }}";
+  if (initYearLabel)  initYearLabel.textContent = "{{ current_year }}";
+  const initSemSel = clone.querySelector('select[name="initial_semester"]');
+  if (initSemSel) initSemSel.selectedIndex = 0;
+
+  // 최종 인정: 연도/학기 초기화
+  const finalYearHidden = clone.querySelector('input[name="final_year"]');
+  const finalYearLabel  = clone.querySelector('.custom-dropdown-trigger[data-target^="final_year_dropdown_"] .custom-dropdown-label');
+  if (finalYearHidden) finalYearHidden.value = "";
+  if (finalYearLabel)  finalYearLabel.textContent = "미입력";
+  const finalSemSel = clone.querySelector('select[name="final_semester"]');
+  if (finalSemSel) finalSemSel.selectedIndex = 0;
+
+  container.appendChild(clone);
+
+  // 새 카드에 드롭다운 이벤트 바인딩
+  initCustomDropdowns(clone);
+}
+
+// 매핑 행 삭제
+function onMapRowsClick(e) {
+  if (e.target.classList.contains("btn-map-remove")) {
+    const card = e.target.closest(".curriculum-map-card");
+    const allCards = document.querySelectorAll(".curriculum-map-card");
+    if (card && allCards.length > 1) {
+      card.remove();
+    }
+  }
+}
+
+// 제출 직전 정리
+function beforeSubmitCleanup(formEl) {
+  // 각 매핑 카드마다 final_year / final_semester 처리
+  formEl.querySelectorAll(".curriculum-map-card").forEach(card => {
+    const fy = card.querySelector('input[name="final_year"]');
+    const fs = card.querySelector('select[name="final_semester"]');
+
+    // final_year 비었으면 -> final_year, final_semester 둘다 disable
+    if (fy && fy.value.trim() === "") {
+      fy.disabled = true;
+      if (fs) fs.disabled = true;
+    } else {
+      // final_year은 있는데 final_semester 비었으면 final_semester만 disable
+      if (fs && fs.value.trim() === "") {
+        fs.disabled = true;
+      }
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // 드롭다운 초기화
+  initCustomDropdowns(document);
+
+  // 행 추가 / 삭제 바인딩
+  document.getElementById("btn_map_add")?.addEventListener("click", addMapRow);
+  document.getElementById("curriculum_map_rows_container")?.addEventListener("click", onMapRowsClick);
+
+  // 제출 훅
+  const form = document.querySelector("form.admin-form");
+  if (form) {
+    form.addEventListener("submit", () => {
+      beforeSubmitCleanup(form);
+    });
+  }
+});
+</script>
+{% endblock %}

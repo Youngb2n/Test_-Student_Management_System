@@ -1,54 +1,13 @@
+<!-- /app/templates/login.html-->
 <!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>로그인 | 교과과정인증정보시스템</title>
-  <style>
-    :root{ --bg:#0f172a; --card:#ffffff; --text:#111827; --muted:#6b7280; --primary:#2563eb; --primary-hover:#1d4ed8; --ring:rgba(37,99,235,.35); --radius:16px; }
-    *{box-sizing:border-box} html,body{height:100%}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans KR',Arial,sans-serif; color:var(--text);
-      background: radial-gradient(1200px 600px at 10% 0%, #1e293b 0%, transparent 60%),
-                 radial-gradient(1000px 500px at 100% 100%, #0b5cff33 0%, transparent 55%), var(--bg);
-      display:grid; place-items:center; min-height:100dvh; padding:24px;}
-    .card{width:100%; max-width:380px; background:var(--card); border-radius:var(--radius); padding:28px 24px 22px;
-      box-shadow:0 20px 60px rgba(0,0,0,.18), 0 6px 18px rgba(0,0,0,.08); border:1px solid #e5e7eb;}
-    .brand{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
-    .brand__logo{width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#60a5fa,#2563eb); box-shadow:0 6px 16px rgba(37,99,235,.35);}
-    h1{font-size:20px; margin:0 0 6px;} .sub{color:var(--muted); font-size:13px; margin:0 0 18px;}
-    label{display:block; font-size:13px; margin:12px 0 6px;}
-    input[type="text"],input[type="password"]{width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:12px; outline:none; transition:box-shadow .15s,border-color .15s,transform .02s; font-size:15px; background:#fff;}
-    input::placeholder{color:#9ca3af} input:focus{border-color:var(--primary); box-shadow:0 0 0 5px var(--ring);}
-    .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:10px 0 16px;}
-    .row label.inline{display:flex; align-items:center; gap:8px; margin:0; color:#374151; font-size:13px;}
-    .btn{width:100%; padding:12px 14px; border:none; border-radius:12px; background:var(--primary); color:#fff; font-weight:600; font-size:15px; cursor:pointer; box-shadow:0 10px 24px rgba(37,99,235,.35); transition:transform .02s, background .15s;}
-    .btn:active{transform:translateY(1px)} .btn:hover{background:var(--primary-hover)}
-    .links{display:flex; justify-content:space-between; margin-top:12px; font-size:13px;}
-    .links a{color:var(--primary); text-decoration:none} .links a:hover{text-decoration:underline}
-    .foot{margin-top:16px; color:#9ca3af; font-size:12px; text-align:center;}
 
-    .tab{display:none;}
-    .role-toggle{ display:flex; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:12px; padding:6px; margin:6px 0 14px;}
-    .role-toggle label{
-      flex:1; text-align:center; padding:10px 12px; border-radius:10px; cursor:pointer; user-select:none; font-weight:600; color:#334155;
-      transition:background .15s, color .15s, box-shadow .15s;
-    }
-    #tab-student:checked ~ .role-toggle label[for="tab-student"],
-    #tab-admin:checked  ~ .role-toggle label[for="tab-admin"]{
-      background:var(--primary); color:#fff; box-shadow:0 8px 20px rgba(37,99,235,.35);
-    }
-    .form{display:none;}
-    #tab-student:checked ~ .form--student{display:block;}
-    #tab-admin:checked  ~ .form--admin {display:block;}
-
-    @media(prefers-color-scheme: dark){
-      :root{ --card:#0b1220; --text:#e5e7eb; --muted:#9aa3b2; }
-      .card{border-color:#1f2937}
-      input[type="text"],input[type="password"]{background:#0f172a; border-color:#1f2937; color:var(--text);}
-      .role-toggle{background:#0f172a; border-color:#1f2937;}
-      .role-toggle label{color:#cbd5e1;}
-    }
-  </style>
+  <!-- ✅ request.url_for 사용: 경로 문제 해결 -->
+  <link rel="stylesheet" href="{{ request.url_for('static', path='css/login.css') }}">
 </head>
 <body>
   <main class="card" role="main">
@@ -60,16 +19,26 @@
       </div>
     </div>
 
-    <input class="tab" type="radio" name="roleTab" id="tab-student" checked>
-    <input class="tab" type="radio" name="roleTab" id="tab-admin">
+    <!-- 탭(라디오)은 role-toggle/폼보다 위에 있어야 CSS가 정상 동작 -->
+    <input class="tab" type="radio" name="roleTab" id="tab-student" {% if active_role != 'admin' %}checked{% endif %}>
+    <input class="tab" type="radio" name="roleTab" id="tab-admin"  {% if active_role == 'admin' %}checked{% endif %}>
 
     <div class="role-toggle" role="tablist" aria-label="로그인 역할 선택">
-      <label role="tab" for="tab-student" aria-controls="student-panel" aria-selected="true">Student</label>
-      <label role="tab" for="tab-admin"  aria-controls="admin-panel"   aria-selected="false">Admin</label>
+      <label role="tab" for="tab-student" aria-controls="student-panel" aria-selected="{{ 'true' if active_role != 'admin' else 'false' }}">Student</label>
+      <label role="tab" for="tab-admin"  aria-controls="admin-panel"   aria-selected="{{ 'true' if active_role == 'admin' else 'false' }}">Admin</label>
     </div>
 
+    {% if error %}
+      <div class="alert alert--error" role="alert">
+        {% if error == 'invalid_student' %}학생 이름/학번을 확인해 주세요.
+        {% elif error == 'invalid_admin' %}관리자 아이디 또는 비밀번호가 올바르지 않습니다.
+        {% elif error == 'invalid_role' %}잘못된 역할입니다.
+        {% else %}로그인 처리 중 오류가 발생했습니다.{% endif %}
+      </div>
+    {% endif %}
+
     <!-- 학생 폼 -->
-    <form class="form form--student" method="post" action="/login" autocomplete="on">
+    <form class="form form--student" id="student-panel" method="post" action="/login" autocomplete="on">
       <input type="hidden" name="role" value="student" />
       <label for="name">이름</label>
       <input id="name" name="name" type="text" placeholder="예: 홍길동" required />
@@ -81,27 +50,30 @@
     </form>
 
     <!-- 관리자 폼 -->
-    <form class="form form--admin" id="admin-panel" method="post" action="/login" autocomplete="on">
-      <input type="hidden" name="role" value="admin" />
-      <label for="uid_a">관리자 아이디</label>
-      <input id="uid_a" name="username" type="text" placeholder="예: admin01" required />
+    <form class="form form--admin" id="admin-panel" method="post" action="/login" autocomplete="off">
+    <input type="hidden" name="role" value="admin" />
+    <label for="uid_a">관리자 아이디</label>
+    <input id="uid_a" name="username" type="text"
+          placeholder="예: admin01"
+          autocomplete="username"
+          autocapitalize="off" spellcheck="false" required />
 
-      <label for="pw_a">비밀번호</label>
-      <input id="pw_a" name="password" type="password" placeholder="비밀번호" required />
+    <label for="pw_a">비밀번호</label>
+    <input id="pw_a" name="password" type="password"
+          placeholder="비밀번호"
+          autocomplete="current-password"
+          inputmode="text" required />
 
-      <div class="row">
-        <label class="inline"><input type="checkbox" name="remember" /> 로그인 상태 유지</label>
-        <a href="#" style="font-size:13px; color:#2563eb; text-decoration:none;">관리자 계정 도움말</a>
-      </div>
+    <div class="row">
+      <label class="inline"><input type="checkbox" name="remember" /> 로그인 상태 유지</label>
+      <a href="#" class="link">관리자 계정 도움말</a>
+    </div>
 
-      <button class="btn" type="submit">로그인</button>
+    <button class="btn" type="submit">로그인</button>
+  </form>
 
-      <div class="links">
-        <span></span>
-        <a href="#">보안 안내</a>
-      </div>
-      <p class="foot">© 2025 Student Management · Admin</p>
-    </form>
-  </main>
+
+  <!-- ✅ JS도 request.url_for로 변경 -->
+  <script defer src="{{ request.url_for('static', path='js/login.js') }}"></script>
 </body>
 </html>

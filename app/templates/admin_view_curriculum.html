@@ -1,29 +1,100 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8"/>
-<title>관리자 | 교과인증과정 조회</title>
-{% include '_head_style_stub.html' ignore missing %}
-</head>
-<body>
-<div class="layout">
-  {% set active='curriculum' %}
-  {% include '_admin_sidebar.html' %}
-  <main class="main">
-    <div class="card">
-      <h1>교과인증과정</h1>
-      <table>
-        <thead><tr><th>이름</th><th>설명</th></tr></thead>
-        <tbody>
-          {% for item in items %}
-            <tr><td>{{ item.name }}</td><td>{{ item.description or '' }}</td></tr>
-          {% else %}
-            <tr><td colspan="2">데이터 없음</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </main>
-</div>
-</body>
-</html>
+{% extends "admin_base.html" %}
+{% block title %}교육과정 조회{% endblock %}
+
+{% block content %}
+<section class="section-card">
+  <header class="section-card__header">
+    <h1 class="section-card__title">교육과정 목록</h1>
+  </header>
+
+  <div class="section-card__inner">
+    {% if curricula|length == 0 %}
+      <p>등록된 교육과정이 없습니다.</p>
+    {% else %}
+      {% for cur in curricula %}
+      <div class="subsection-card" style="margin-bottom:1rem;">
+        <div class="form-row">
+          <div class="field flex-1">
+            <div class="field-label">과정명</div>
+            <div>{{ cur.course_name }}</div>
+          </div>
+          <div class="field flex-1">
+            <div class="field-label">유형</div>
+            <div>{{ cur.program_type }}</div>
+          </div>
+          <div class="field flex-1">
+            <div class="field-label">학위 구분</div>
+            <div>{{ cur.degree_type }}</div>
+          </div>
+          <div class="field flex-1">
+            <div class="field-label">학과 구분</div>
+            <div>{{ cur.department_type }}</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field flex-1">
+            <div class="field-label">개설</div>
+            <div>
+              {{ cur.open_year or "미입력" }}
+              {{ cur.open_semester or "" }}
+            </div>
+          </div>
+          <div class="field flex-1">
+            <div class="field-label">폐지</div>
+            <div>
+              {{ cur.close_year or "미입력" }}
+              {{ cur.close_semester or "" }}
+            </div>
+          </div>
+          <div class="field flex-1">
+            <div class="field-label">사업단</div>
+            <div>{{ cur.business_initiative_id or "-" }}</div>
+          </div>
+        </div>
+
+        <hr style="margin:1rem 0; border:0; border-top:1px solid #e2e8f0;" />
+
+        <div class="form-row">
+          <div class="field flex-1">
+            <div class="field-label">이수조건(Program Requirement)</div>
+
+            {% set reqs = req_map.get(cur.id, []) %}
+            {% if reqs|length == 0 %}
+              <div class="field-hint-block">등록된 이수조건 없음</div>
+            {% else %}
+              <ul style="padding-left:1rem; margin:0;">
+                {% for r in reqs %}
+                <li style="margin-bottom:.5rem;">
+                  <div>
+                    <strong>적용 범위:</strong>
+                    {{ r.college_scope }} / {{ r.degree_scope }}
+                  </div>
+                  <div>
+                    <strong>필요 학점:</strong>
+                    교과 {{ r.required_credit }}학점 · 비교과 {{ r.total_converted_required }}점 · 인턴십 {{ r.total_internship_required }}점
+                  </div>
+                  <div>
+                    <strong>최소 활동:</strong>
+                    AI.MED talks {{ r.min_ai_med_talks }}회 /
+                    기업견학 {{ r.min_company_visit }}회 /
+                    병원견학 {{ r.min_hospital_visit }}회 /
+                    세미나 {{ r.min_seminar }}회 /
+                    교류회 {{ r.min_exchange_forum }}회 /
+                    박람회 {{ r.min_expo }}회 /
+                    학회 {{ r.min_academic_conf }}회 /
+                    경진대회 {{ r.min_competition }}회 /
+                    기타 {{ r.min_etc }}회
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

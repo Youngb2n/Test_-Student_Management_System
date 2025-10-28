@@ -1,24 +1,28 @@
 import os
-from pathlib import Path
+from sqlmodel import create_engine, Session
 from dotenv import load_dotenv
-from sqlmodel import SQLModel, create_engine, Session
 
-# Load .env
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# load env only once
+load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    DB_PATH = Path(__file__).resolve().parent / "app.db"
-    DATABASE_URL = f"sqlite:///{DB_PATH}"
+# runtime pooler URL (transaction pooler @ 6543)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/postgres"
+)
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args, pool_pre_ping=True)
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 
-def init_db():
-    from .models import User
-    SQLModel.metadata.create_all(engine)
+# set pool_pre_ping True to avoid stale prepared statements,
+# autocommit off (default), expire_on_commit False so objects usable after commit
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    echo=False,
+)
 
 def get_session():
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         yield session

@@ -1,0 +1,812 @@
+{% extends "admin_base.html" %}
+
+{% block title %}학생 등록{% endblock %}
+
+{% block content %}
+
+{% if request.query_params.get("success") %}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    alert("학생 등록이 완료되었습니다.");
+  });
+</script>
+{% endif %}
+
+{% from "partials/_section_card.html" import section_card %}
+
+<form class="admin-form" method="post" action="/admin/register/student">
+
+  {# ───────── 기본 정보 섹션 ───────── #}
+  {% call section_card("기본 정보", 1) %}
+    <div class="section-card__inner">
+
+      <div class="field">
+        <label class="field-label" for="student_no">
+          학번
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="student_no"
+          name="student_no"
+          type="text"
+          placeholder="예: {{ current_year }}0001"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="name">
+          이름(국문)
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="name"
+          name="name"
+          type="text"
+          placeholder="홍길동"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="name_en">
+          이름(영문)
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="name_en"
+          name="name_en"
+          type="text"
+          placeholder="HONG GILDONG"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="birthdate">
+          생년월일
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="birthdate"
+          name="birthdate"
+          type="date"
+          min="1900-01-01"
+          max="2100-12-31"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="researcher_id">
+          연구원번호 (Researcher ID)
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="researcher_id"
+          name="researcher_id"
+          type="text"
+          placeholder="R123456"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="nationality_select">
+          국적
+          <span class="field-required">*</span>
+        </label>
+
+        <div class="inline-flex">
+          <select
+            class="input-control inline-first"
+            name="nationality"
+            id="nationality_select"
+            required
+          >
+            {% for opt in option_map["nationality"] %}
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+            <option value="__OTHER__">기타(직접입력)</option>
+          </select>
+
+          <input
+            class="input-control inline-second"
+            type="text"
+            id="nationality_other"
+            name="nationality_custom"
+            placeholder="직접 입력"
+            style="display:none;"
+          />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="foreigner_reg_no">
+          외국인등록번호
+        </label>
+        <input
+          class="input-control"
+          id="foreigner_reg_no"
+          name="foreigner_reg_no"
+          type="text"
+          placeholder="외국인만 입력"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="mobile_phone_num">
+          휴대폰번호
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="mobile_phone_num"
+          name="mobile_phone_num"
+          type="tel"
+          placeholder="010-0000-0000"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="phone_num">
+          유선전화
+        </label>
+        <input
+          class="input-control"
+          id="phone_num"
+          name="phone_num"
+          type="tel"
+          placeholder="02-000-0000"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          이메일(교내)
+          <span class="field-required">*</span>
+        </label>
+        <div class="inline-email">
+          <input
+            class="input-control email-local"
+            type="text"
+            name="email_snu_local"
+            placeholder="userid"
+            required
+          />
+          <span class="at-sign">@</span>
+          <span class="fixed-domain">snu.ac.kr</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          이메일(개인)
+          <span class="field-required">*</span>
+        </label>
+        <div class="inline-email" id="personal_email_row">
+          <input
+            class="input-control email-local"
+            type="text"
+            name="email_other_local"
+            placeholder="user"
+            required
+          />
+          <span class="at-sign">@</span>
+
+          <select
+            class="input-control email-domain"
+            id="email_other_domain_select"
+            name="email_other_domain"
+            required
+          >
+            {% for opt in option_map["email_domain"] %}
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+            {% endfor %}
+            <option value="__OTHER__">기타(직접입력)</option>
+          </select>
+
+          <input
+            class="input-control email-domain"
+            id="email_other_domain_other"
+            name="email_other_custom"
+            type="text"
+            placeholder="example.com"
+            style="display:none;"
+          />
+        </div>
+      </div>
+
+    </div> {# /.section-card__inner #}
+  {% endcall %}
+
+  {# ───────── 재학 정보 섹션 ───────── #}
+  {% call section_card("재학 정보", 2) %}
+    <div class="section-card__inner">
+
+      <div class="field">
+        <label class="field-label" for="degree">
+          학위과정
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="degree"
+          name="degree"
+          required
+        >
+          {% for opt in option_map["degree"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="college">
+          단과대학
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="college"
+          name="college"
+          required
+        >
+          {% for opt in option_map["college"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="collaborative_program">
+          협동과정
+        </label>
+        <select
+          class="input-control"
+          id="collaborative_program"
+          name="collaborative_program"
+        >
+          {% for opt in option_map["collaborative_program"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="department_input">
+          학과
+          <span class="field-required">*</span>
+          <span class="field-hint-inline">(공백 없이 입력)</span>
+        </label>
+        <input
+          class="input-control"
+          id="department_input"
+          name="department"
+          type="text"
+          placeholder="예: 의과대학의학과"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="major_input">
+          전공
+          <span class="field-required">*</span>
+          <span class="field-hint-inline">(공백 없이 입력)</span>
+        </label>
+        <input
+          class="input-control"
+          id="major_input"
+          name="major"
+          type="text"
+          placeholder="예: AI의학"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="admission_type">
+          입학전형
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="admission_type"
+          name="admission_type"
+          required
+        >
+          {% for opt in option_map["admission_type"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# 재직자 전형일 때만 노출되는 블록 #}
+      <div class="subsection-card" id="employed_block" style="display:none;">
+        <div class="subsection-card__inner">
+
+          <div class="field">
+            <label class="field-label" for="workplace">
+              근무지명
+            </label>
+            <input
+              class="input-control"
+              id="workplace"
+              name="workplace"
+              type="text"
+              placeholder="회사/기관명"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="health_insurance_certificate">
+              건강보험자격득실확인서
+            </label>
+
+            <button type="button" class="btn-ghost-danger" disabled>
+              📄 서류 업로드 (준비중)
+            </button>
+
+            <input
+              class="input-control"
+              id="health_insurance_certificate"
+              name="health_insurance_certificate"
+              type="text"
+              placeholder="(업로드 경로 저장 예정)"
+              readonly
+            />
+          </div>
+
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          입학년도
+          <span class="field-required">*</span>
+        </label>
+
+        <div class="custom-dropdown-wrapper">
+          <button
+            type="button"
+            class="custom-dropdown-trigger"
+            data-target="admission_year_dropdown"
+          >
+            <span class="custom-dropdown-label" id="admission_year_label">{{ current_year }}</span>
+            <span class="custom-dropdown-arrow">▼</span>
+          </button>
+
+          <div class="custom-dropdown-menu" id="admission_year_dropdown">
+            {% for y in range(2000,2101) %}
+            <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+            {% endfor %}
+          </div>
+
+          <input
+            class="input-control"
+            type="hidden"
+            id="admission_year"
+            name="admission_year"
+            value="{{ current_year }}"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="admission_term">
+          입학학기
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="admission_term"
+          name="admission_term"
+          required
+        >
+          {% for opt in option_map["admission_term"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="academic_status">
+          학적상태
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="academic_status"
+          name="academic_status"
+          required
+        >
+          {% for opt in option_map["academic_status"] %}
+            <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="leave_of_absence">
+          휴학 여부
+        </label>
+        <select
+          class="input-control"
+          id="leave_of_absence"
+          name="leave_of_absence"
+        >
+          {% for opt in option_map["leave_of_absence_flag"] %}
+            <option
+              value="{{ opt.value }}"
+              {% if opt.value == 'N' %}selected{% endif %}
+            >
+              {{ opt.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# 휴학 이력 블록 (휴학 여부 Y일 때 표시) #}
+      <div class="leave-block-shell" id="leave_block" style="display:none;">
+
+        <div id="leave_rows_container">
+          <div class="leave-history-row">
+            <div class="field inline-mini">
+              <label class="field-label">휴학년도</label>
+
+              <div class="custom-dropdown-wrapper">
+                <button
+                  type="button"
+                  class="custom-dropdown-trigger"
+                  data-target="leave_year_dropdown_0"
+                >
+                  <span class="custom-dropdown-label">{{ current_year }}</span>
+                  <span class="custom-dropdown-arrow">▼</span>
+                </button>
+
+                <div class="custom-dropdown-menu" id="leave_year_dropdown_0">
+                  {% for y in range(2000,2101) %}
+                  <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                  {% endfor %}
+                </div>
+
+                <input
+                  class="input-control"
+                  type="hidden"
+                  name="leave_year"
+                  value="{{ current_year }}"
+                />
+              </div>
+            </div>
+
+            <div class="field inline-mini">
+              <label class="field-label">휴학학기</label>
+              <select
+                class="input-control"
+                name="leave_semester"
+              >
+                {% for opt in option_map["semester_simple"] %}
+                  <option value="{{ opt.value }}">{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              class="btn-leave-remove btn-ghost-danger"
+            >
+              🗑 삭제
+            </button>
+          </div>
+        </div>
+
+        <div class="leave-actions-row">
+          <button type="button" class="btn-ghost-add" id="btn_leave_add">
+            ➕ 휴학 이력 추가
+          </button>
+        </div>
+
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="advisor_name">
+          지도교수
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="advisor_name"
+          name="advisor_name"
+          type="text"
+          placeholder="예: 김교수"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="supervisor_name">
+          담당교수
+        </label>
+        <input
+          class="input-control"
+          id="supervisor_name"
+          name="supervisor_name"
+          type="text"
+          placeholder="예: 박교수"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="previous_degree">
+          입학 전 최종학위
+          <span class="field-required">*</span>
+        </label>
+        <select
+          class="input-control"
+          id="previous_degree"
+          name="previous_degree"
+          required
+        >
+          <option value="학사">학사</option>
+          <option value="석사">석사</option>
+          <option value="박사">박사</option>
+          <option value="석박사통합과정(석사)">석박사통합과정(석사)</option>
+          <option value="석박사통합과정(박사)">석박사통합과정(박사)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="previous_major">
+          입학 전 전공
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="previous_major"
+          name="previous_major"
+          type="text"
+          placeholder="예: 의료정보학"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          최종학위 취득연도
+          <span class="field-required">*</span>
+        </label>
+        <div class="custom-dropdown-wrapper">
+          <button
+            type="button"
+            class="custom-dropdown-trigger"
+            data-target="previous_degree_year_dropdown"
+          >
+            <span class="custom-dropdown-label" id="previous_degree_year_label">{{ current_year }}</span>
+            <span class="custom-dropdown-arrow">▼</span>
+          </button>
+
+          <div class="custom-dropdown-menu" id="previous_degree_year_dropdown">
+            {% for y in range(2000,2101) %}
+            <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+            {% endfor %}
+          </div>
+
+          <input
+            class="input-control"
+            type="hidden"
+            id="previous_degree_year"
+            name="previous_degree_year"
+            value="{{ current_year }}"
+            required
+          />
+        </div>
+        <div class="field-hint-block">연도는 직접 타이핑도 가능</div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="previous_institution">
+          최종학위 대학명
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="previous_institution"
+          name="previous_institution"
+          type="text"
+          placeholder="예: 서울대학교 의과대학"
+          required
+        />
+      </div>
+
+    </div> {# /.section-card__inner #}
+  {% endcall %}
+
+  {# ───────── 하단 저장/리셋 공통 파셜 ───────── #}
+  {% include "partials/_form_actions.html" %}
+</form>
+
+{# ───────── 페이지별 초기화 스크립트 ───────── #}
+<script type="module">
+  import {
+    initCustomDropdowns,
+    syncConditionalBlocks,
+    bindLeaveRows,
+    hasSpace,
+    isValidDateYYYYMMDD,
+    hasDuplicateLeaveHistory,
+    resetFormStateToDefault
+  } from "{{ request.url_for('static', path='js/admin_form.js') }}";
+
+  const CURRENT_YEAR = "{{ current_year }}";
+
+  function syncNationality() {
+    const sel   = document.getElementById("nationality_select");
+    const other = document.getElementById("nationality_other");
+    if (!sel || !other) return;
+    if (sel.value === "__OTHER__") {
+      other.style.display = "inline-block";
+      other.required = true;
+    } else {
+      other.style.display = "none";
+      other.required = false;
+      other.value = "";
+    }
+  }
+
+  function syncEmailDomain() {
+    const sel   = document.getElementById("email_other_domain_select");
+    const other = document.getElementById("email_other_domain_other");
+    if (!sel || !other) return;
+    if (sel.value === "__OTHER__") {
+      sel.style.display = "none";
+      other.style.display = "inline-block";
+      other.required = true;
+    } else {
+      other.style.display = "none";
+      other.required = false;
+      other.value = "";
+      sel.style.display = "inline-block";
+    }
+  }
+
+  function onFormSubmit(e) {
+    // 공백 금지 필드
+    const dep = document.getElementById("department_input");
+    const maj = document.getElementById("major_input");
+    if (dep && hasSpace(dep.value)) {
+      alert("학과는 공백 없이 입력해야 합니다.");
+      e.preventDefault();
+      return;
+    }
+    if (maj && hasSpace(maj.value)) {
+      alert("전공은 공백 없이 입력해야 합니다.");
+      e.preventDefault();
+      return;
+    }
+
+    // 생년월일 sanity check
+    const birthEl = document.getElementById("birthdate");
+    if (birthEl) {
+      const val = birthEl.value.trim();
+      if (!isValidDateYYYYMMDD(val)) {
+        alert("생년월일을 올바른 형식(YYYY-MM-DD)으로 입력하세요.");
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // 국적 기타일 때는 직접입력 필수
+    const natSel   = document.getElementById("nationality_select");
+    const natOther = document.getElementById("nationality_other");
+    if (natSel && natOther && natSel.value === "__OTHER__") {
+      if (!natOther.value.trim()) {
+        alert("국적을 직접 입력하세요.");
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // 이메일 도메인 기타일 때는 직접입력 필수
+    const domSel   = document.getElementById("email_other_domain_select");
+    const domOther = document.getElementById("email_other_domain_other");
+    if (domSel && domOther && domSel.style.display === "none") {
+      if (!domOther.value.trim()) {
+        alert("이메일 도메인을 직접 입력하세요.");
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // 최종학력 관련 필수 묶음
+    const prevDeg  = document.getElementById("previous_degree");
+    const prevMaj  = document.getElementById("previous_major");
+    const prevYr   = document.getElementById("previous_degree_year");
+    const prevInst = document.getElementById("previous_institution");
+
+    if (!prevDeg.value.trim()) {
+      alert("입학 전 최종학위를 선택하세요.");
+      e.preventDefault();
+      return;
+    }
+    if (!prevMaj.value.trim()) {
+      alert("입학 전 전공을 입력하세요.");
+      e.preventDefault();
+      return;
+    }
+    if (!prevYr.value.trim()) {
+      alert("최종학위 취득연도를 선택하세요.");
+      e.preventDefault();
+      return;
+    }
+    if (!prevInst.value.trim()) {
+      alert("최종학위 대학명을 입력하세요.");
+      e.preventDefault();
+      return;
+    }
+
+    // 휴학 이력 (연도+학기) 중복 검사
+    const dupCheck = hasDuplicateLeaveHistory();
+    if (dupCheck.dup) {
+      alert(
+        `휴학 이력에 ${dupCheck.year}년 ${dupCheck.sem}가 중복으로 입력되었습니다.`
+      );
+      e.preventDefault();
+      return;
+    }
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // 국적 기타 토글
+    document
+      .getElementById("nationality_select")
+      ?.addEventListener("change", syncNationality);
+    syncNationality();
+
+    // 이메일 도메인 기타 토글
+    document
+      .getElementById("email_other_domain_select")
+      ?.addEventListener("change", syncEmailDomain);
+    syncEmailDomain();
+
+    // 조건부 블록 (재직자 전형 / 휴학 이력)
+    document
+      .getElementById("admission_type")
+      ?.addEventListener("change", syncConditionalBlocks);
+    document
+      .getElementById("leave_of_absence")
+      ?.addEventListener("change", syncConditionalBlocks);
+    syncConditionalBlocks();
+
+    // 휴학 이력 추가/삭제 기능
+    bindLeaveRows(CURRENT_YEAR);
+
+    // 커스텀 드롭다운 초기화
+    initCustomDropdowns(document);
+
+    // 제출 전 유효성 검사
+    document
+      .querySelector("form.admin-form")
+      ?.addEventListener("submit", onFormSubmit);
+
+    // 리셋 시 UI 상태 초기화
+    const formEl = document.querySelector("form.admin-form");
+    if (formEl) {
+      formEl.addEventListener("reset", () => {
+        // reset 직후 브라우저가 기본값으로 돌리는 걸 기다렸다가 처리
+        setTimeout(() => {
+          resetFormStateToDefault(CURRENT_YEAR);
+          syncConditionalBlocks(); // 블록 표시/숨김 최종 싱크
+        }, 0);
+      });
+    }
+  });
+</script>
+{% endblock %}

@@ -10,6 +10,7 @@ from starlette.templating import Jinja2Templates
 from app.database import get_session
 from app import models
 
+
 app = FastAPI()
 
 # static mount (CSS/JS)
@@ -26,9 +27,7 @@ app.add_middleware(
     https_only=False,
 )
 
-# -------------------------------------------------
-# helpers
-# -------------------------------------------------
+# ---------- helpers ----------
 
 def build_option_map(db: Session) -> dict:
     """
@@ -48,6 +47,7 @@ def build_option_map(db: Session) -> dict:
             if not it.is_active:
                 continue
 
+            # 어떤 value_* 필드를 써야 할지 결정
             if it.value_text is not None:
                 v = it.value_text
             elif it.value_int is not None:
@@ -72,9 +72,9 @@ def require_admin(request: Request) -> bool:
 
 def parse_birthdate_safe(raw: str) -> Optional[date]:
     """
-    'YYYY-MM-DD' -> date
+    'YYYY-MM-DD' 입력받아서 date로 변환.
     1900~2100년 사이만 허용.
-    잘못되면 None.
+    잘못된 값이면 None.
     """
     try:
         y_s, m_s, d_s = raw.split("-")
@@ -86,81 +86,7 @@ def parse_birthdate_safe(raw: str) -> Optional[date]:
         return None
 
 
-def _college_code_from_scope(scope: str) -> str:
-    """
-    ProgramRequirement.requirement_code 생성용.
-    의대 계열이면 'M', 아니면 'E'.
-    """
-    scope = (scope or "").strip()
-    if scope.startswith("의과대"):
-        return "M"
-    return "E"
-
-
-def _degree_code_from_scope(scope: str) -> str:
-    """
-    학위 구분 코드화:
-    학부=B, 석사=M, 박사=D, 대학원생/통합=C (임시 공통 코드)
-    """
-    s = (scope or "").strip()
-    if s == "학부":
-        return "B"
-    if s == "석사":
-        return "M"
-    if s == "박사":
-        return "D"
-    if s in ("대학원생", "통합"):
-        return "C"
-    return "C"
-
-
-def _next_requirement_seq_for_year(db: Session, year_prefix: str) -> int:
-    """
-    requirement_code 앞 4자(연도)가 year_prefix 인 것들 중
-    seq(0001 등) 최댓값+1 리턴.
-    """
-    existing = db.exec(
-        select(models.ProgramRequirement.requirement_code)
-        .where(models.ProgramRequirement.requirement_code.like(f"{year_prefix}%"))
-    ).all()
-
-    max_seq = 0
-    for code in existing:
-        if not code or len(code) < 10:
-            continue
-        seq_part = code[4:8]  # YYYY[0001]MC 가정
-        try:
-            num = int(seq_part)
-            if num > max_seq:
-                max_seq = num
-        except ValueError:
-            pass
-
-    return max_seq + 1
-
-
-def _generate_requirement_code(
-    db: Session,
-    college_scope: str,
-    degree_scope: str,
-    year: int
-) -> str:
-    """
-    2025 + 0001 + M + C => "20250001MC"
-    """
-    year_str = str(year)
-    seq_int = _next_requirement_seq_for_year(db, year_str)
-    seq_str = f"{seq_int:04d}"
-
-    college_code = _college_code_from_scope(college_scope)
-    degree_code = _degree_code_from_scope(degree_scope)
-
-    return f"{year_str}{seq_str}{college_code}{degree_code}"
-
-
-# -------------------------------------------------
-# auth / home
-# -------------------------------------------------
+# ---------- routes ----------
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
@@ -185,7 +111,7 @@ def login_submit(
     student_no: str = Form(None),
     remember: str = Form(None),
 ):
-    # admin login
+    # ── admin login
     if role == "admin":
         if not username or not password:
             return templates.TemplateResponse(
@@ -204,6 +130,7 @@ def login_submit(
             )
         ).first()
 
+        # bcrypt check
         if (
             admin_row is None
             or admin_row.admin_hash is None
@@ -223,9 +150,10 @@ def login_submit(
             )
 
         request.session["admin_id"] = admin_row.admin_id
-        return RedirectResponse(url="/admin", status_code=302)
+        resp = RedirectResponse(url="/admin", status_code=302)
+        return resp
 
-    # student login (이름+학번 매칭)
+    # ── student login (단순 이름+학번 매칭)
     if role == "student":
         if not name or not student_no:
             return templates.TemplateResponse(
@@ -257,9 +185,10 @@ def login_submit(
             )
 
         request.session["student_no"] = student_row.student_no
-        return RedirectResponse(url="/student", status_code=302)
+        resp = RedirectResponse(url="/student", status_code=302)
+        return resp
 
-    # role 이상함
+    # role 이상한 경우
     return templates.TemplateResponse(
         "login.html",
         {
@@ -291,10 +220,6 @@ def admin_home(request: Request):
     )
 
 
-# -------------------------------------------------
-# register pages (GET)
-# -------------------------------------------------
-
 @app.get("/admin/register/student", response_class=HTMLResponse)
 def admin_register_student(
     request: Request,
@@ -316,7 +241,9 @@ def admin_register_student(
         },
     )
 
-
+# ─────────────────────────────────────────────
+# 사업단 주관사업 등록 페이지
+# ─────────────────────────────────────────────
 @app.get("/admin/register/business", response_class=HTMLResponse)
 def admin_register_business_initiative(
     request: Request,
@@ -331,23 +258,32 @@ def admin_register_business_initiative(
         "admin_register_business_initiative.html",
         {
             "request": request,
-            "active": "register",
+            "active": "register",            # 사이드바 '등록' 섹션 열림 유지
             "current_year": current_year,
         },
     )
 
 
+# ─────────────────────────────────────────────
+# 교육과정 등록 페이지
+#   - option_map: seed_options 기반 select 값들
+#   - initiatives: BusinessInitiative 목록 (소속 사업단 선택)
+#   - 교육과정 이수조건 등록
+# ─────────────────────────────────────────────
 @app.get("/admin/register/curriculum", response_class=HTMLResponse)
 def admin_register_curriculum_program(
     request: Request,
     db: Session = Depends(get_session),
 ):
+    # ───── 관리자 인증 확인 ─────
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    option_map = build_option_map(db)
+    # ───── Select 옵션 빌드 (seed_options.py 기반) ─────
+    option_map = build_option_map(db)  # 예: degree, college, semester_simple 등
     current_year = datetime.now().year
 
+    # ───── 사업단 주관사업 목록 (BusinessInitiative DB에서 로드) ─────
     initiatives = db.exec(
         select(models.BusinessInitiative)
         .order_by(models.BusinessInitiative.project_name.asc())
@@ -357,14 +293,19 @@ def admin_register_curriculum_program(
         "admin_register_curriculum_program.html",
         {
             "request": request,
-            "active": "register",
-            "option_map": option_map,
-            "initiatives": initiatives,
-            "current_year": current_year,
+            "active": "register",       # 사이드바 활성화
+            "option_map": option_map,   # select 값 세트
+            "initiatives": initiatives, # 사업단 목록 (드롭다운에 표시)
+            "current_year": current_year,  # 커스텀드롭다운용 기본연도
         },
     )
 
 
+# ─────────────────────────────────────────────
+# 교과목 등록 페이지
+#   - option_map: 학기 옵션 등에서 재사용 가능
+#   - curricula: CurriculumProgram 리스트 (교육과정 매핑 select)
+# ─────────────────────────────────────────────
 @app.get("/admin/register/course", response_class=HTMLResponse)
 def admin_register_course(
     request: Request,
@@ -377,8 +318,7 @@ def admin_register_course(
     current_year = datetime.now().year
 
     curricula = db.exec(
-        select(models.CurriculumProgram)
-        .order_by(models.CurriculumProgram.course_name.asc())
+        select(models.CurriculumProgram).order_by(models.CurriculumProgram.course_name.asc())
     ).all()
 
     return templates.TemplateResponse(
@@ -393,6 +333,11 @@ def admin_register_course(
     )
 
 
+# ─────────────────────────────────────────────
+# 비교과 프로그램 등록 페이지
+#   - curricula: CurriculumProgram 리스트
+#     (매핑/환산점수 입력할 때 교육과정 셀렉트용)
+# ─────────────────────────────────────────────
 @app.get("/admin/register/extracurricular", response_class=HTMLResponse)
 def admin_register_extracurricular_program(
     request: Request,
@@ -403,10 +348,8 @@ def admin_register_extracurricular_program(
 
     current_year = datetime.now().year
 
-    # 비교과 등록 시 교육과정 드롭다운에 쓸 리스트
     curricula = db.exec(
-        select(models.CurriculumProgram)
-        .order_by(models.CurriculumProgram.course_name.asc())
+        select(models.CurriculumProgram).order_by(models.CurriculumProgram.program_type.asc())
     ).all()
 
     return templates.TemplateResponse(
@@ -419,16 +362,15 @@ def admin_register_extracurricular_program(
         },
     )
 
-
-# -------------------------------------------------
-# register POST handlers
-# -------------------------------------------------
-
+# ─────────────────────────────────────────────
+# 학생 등록 (POST)
+# ─────────────────────────────────────────────
 @app.post("/admin/register/student")
 async def admin_register_student_post(
     request: Request,
     db: Session = Depends(get_session),
 
+    # ----- 기본 정보 -----
     student_no: str = Form(...),
     name: str = Form(...),
     name_en: str = Form(...),
@@ -442,11 +384,13 @@ async def admin_register_student_post(
     mobile_phone_num: str = Form(...),
     phone_num: str = Form(""),
 
+    # ----- 이메일 -----
     email_snu_local: str = Form(...),
     email_other_local: str = Form(...),
-    email_other_domain: str = Form(...),
-    email_other_custom: str = Form(""),
+    email_other_domain: str = Form(...),     # select 값 (혹은 "__OTHER__")
+    email_other_custom: str = Form(""),      # 직접입력 도메인
 
+    # ----- 재학 정보 -----
     degree: str = Form(...),
     college: str = Form(...),
     collaborative_program: str = Form(""),
@@ -461,21 +405,24 @@ async def admin_register_student_post(
     advisor_name: str = Form(...),
     supervisor_name: str = Form(""),
 
+    # 재직자 전형 관련
     workplace: str = Form(""),
     health_insurance_certificate: str = Form(""),
 
+    # ----- 입학 전 최종학력 (모두 nullable=False in DB) -----
     previous_degree: str = Form(...),
     previous_major: str = Form(...),
     previous_degree_year: int = Form(...),
     previous_institution: str = Form(...),
 
+    # ----- 휴학 이력 여러개 -----
     leave_year: List[int] = Form([]),
     leave_semester: List[str] = Form([]),
 ):
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    # 생년월일 검증
+    # 1. 생년월일 검증 (프론트에서도 막았지만 서버에서도 한 번 더 막자)
     birthdate_parsed = parse_birthdate_safe(birthdate)
     if birthdate_parsed is None:
         return JSONResponse(
@@ -483,7 +430,7 @@ async def admin_register_student_post(
             status_code=400,
         )
 
-    # 이메일 조립
+    # 2. 이메일 조립
     email_snu_full = f"{email_snu_local}@snu.ac.kr".strip()
     if email_other_domain == "__OTHER__":
         domain_final = email_other_custom.strip()
@@ -491,10 +438,10 @@ async def admin_register_student_post(
         domain_final = email_other_domain.strip()
     email_other_full = f"{email_other_local}@{domain_final}".strip()
 
-    # 국적 최종값
+    # 3. 국적 최종값
     nat_final = nationality_custom.strip() if nationality == "__OTHER__" else nationality
 
-    # 재직자 전형 관련
+    # 4. 재직자 전형 관련 필드 정리
     is_employed_type = ("재직" in admission_type)
     workplace_final = workplace.strip() if (is_employed_type and workplace.strip()) else None
     health_cert_final = (
@@ -503,9 +450,7 @@ async def admin_register_student_post(
         else None
     )
 
-    now_utc = datetime.utcnow()
-
-    # Student INSERT
+    # 5. Student INSERT (commit 전에 flush 해서 stu.id 확보 → LeaveHistory FK로 씀)
     stu = models.Student(
         student_no=student_no,
         name=name,
@@ -541,20 +486,22 @@ async def admin_register_student_post(
         workplace=workplace_final,
         health_insurance_certificate=health_cert_final,
 
+        # 입학 전 최종학력 (NOT NULL)
         previous_degree=previous_degree,
         previous_major=previous_major,
         previous_degree_year=previous_degree_year,
         previous_institution=previous_institution,
 
-        created_at=now_utc,
-        updated_at=now_utc,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
 
     db.add(stu)
-    db.flush()  # stu.id 확보
+    db.flush()  # 여기서 stu.id 확보됨 (아직 commit 전)
 
-    # 휴학 이력 insert (leave_of_absence == 'Y'일 때만)
-    if leave_of_absence and leave_of_absence.upper() == "Y":
+    # 6. 휴학 이력 INSERT (여러 건 지원)
+    # leave_of_absence 값이 휴학 계열일 때만 insert
+    if leave_of_absence and leave_of_absence.upper() =="Y":
         for y, sem in zip(leave_year, leave_semester):
             if not y or not sem:
                 continue
@@ -562,32 +509,40 @@ async def admin_register_student_post(
                 student_id=stu.id,
                 leave_year=int(y),
                 leave_semester=sem,
-                created_at=now_utc,
-                updated_at=now_utc,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
             )
             db.add(leave_row)
 
+    # 7. 최종 commit (Student + LeaveHistory 같이 저장)
     db.commit()
 
+    # 8. 성공 후 다시 등록 페이지(빈 폼)로 리다이렉트
     return RedirectResponse(
         url="/admin/register/student?success=1",
         status_code=302,
     )
 
 
+# ─────────────────────────────────────────────
+# 사업단 주관사업 등록 (POST)
+# ─────────────────────────────────────────────
 @app.post("/admin/register/business")
 async def admin_register_business_post(
     request: Request,
     db: Session = Depends(get_session),
 
+    # --- 기본 정보 ---
     project_name: str = Form(...),
     support_agency: str = Form(""),
     specialized_institute: str = Form(""),
     research_task_name: str = Form(""),
 
+    # --- 일정 ---
     start_date: str = Form(...),
     end_date: str = Form(...),
 
+    # --- KPI ---
     beneficiary_target: Optional[float] = Form(None),
     output_target: Optional[float] = Form(None),
     career_linked_target: Optional[float] = Form(None),
@@ -595,7 +550,7 @@ async def admin_register_business_post(
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    # 일정 검증
+    # 날짜 검증
     try:
         start_date_parsed = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date_parsed = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -610,8 +565,7 @@ async def admin_register_business_post(
             status_code=400,
         )
 
-    now_utc = datetime.utcnow()
-
+    # INSERT
     biz = models.BusinessInitiative(
         project_name=project_name.strip(),
         support_agency=support_agency.strip() or None,
@@ -625,41 +579,129 @@ async def admin_register_business_post(
         output_target=output_target,
         career_linked_target=career_linked_target,
 
-        created_at=now_utc,
-        updated_at=now_utc,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
 
     db.add(biz)
     db.commit()
 
+    # 완료 후 등록 페이지로 리다이렉트
     return RedirectResponse(
         url="/admin/register/business?success=1",
         status_code=302,
     )
 
 
+def _college_code_from_scope(scope: str) -> str:
+    """
+    ProgramRequirement.requirement_code 생성용.
+    의대 계열이면 'M', 아니면 'E' 등으로 매핑.
+    """
+    scope = (scope or "").strip()
+    if scope.startswith("의과대"):  # "의과대학", "의과대학(의학과)" 등
+        return "M"
+    # 나머지(그 외 등)
+    return "E"
+
+
+def _degree_code_from_scope(scope: str) -> str:
+    """
+    학위 구분을 코드화.
+    학부=B, 석사=M, 박사=D, 대학원생=C, 통합=C (일단 C로 처리)
+    """
+    s = (scope or "").strip()
+    if s == "학부":
+        return "B"
+    if s == "석사":
+        return "M"
+    if s == "박사":
+        return "D"
+    if s in ("대학원생", "통합"):
+        return "C"
+    # fallback
+    return "C"
+
+
+def _next_requirement_seq_for_year(db: Session, year_prefix: str) -> int:
+    """
+    year_prefix: '2025' 처럼 4자리 연도 문자열.
+    DB에 이미 있는 requirement_code 중 해당 연도로 시작하는 것들 찾아,
+    맨 뒤 4자리 seq 중 최댓값 + 1을 반환.
+    없으면 1부터 시작.
+    """
+    # requirement_code 형식 가정: YYYY + seq(4) + codes(2)
+    # 예: 20250001MC
+    # substr 5~8이 seq. DB마다 substr 다르지만 sqlmodel+like 로 간단히 처리:
+    existing = db.exec(
+        select(models.ProgramRequirement.requirement_code)
+        .where(models.ProgramRequirement.requirement_code.like(f"{year_prefix}%"))
+    ).all()
+
+    max_seq = 0
+    for code in existing:
+        if not code or len(code) < 10:
+            continue
+        # code[4:8] 가 seq('0001' 등)이라고 가정
+        seq_part = code[4:8]
+        try:
+            num = int(seq_part)
+            if num > max_seq:
+                max_seq = num
+        except ValueError:
+            pass
+
+    return max_seq + 1
+
+
+def _generate_requirement_code(db: Session,
+                               college_scope: str,
+                               degree_scope: str,
+                               year: int) -> str:
+    """
+    예: 2025 + 0001 + M + C  -> '20250001MC'
+    year: int (예: 2025) 보통 현재 연도 사용
+    """
+    year_str = str(year)
+    seq_int = _next_requirement_seq_for_year(db, year_str)
+    seq_str = f"{seq_int:04d}"
+
+    college_code = _college_code_from_scope(college_scope)
+    degree_code  = _degree_code_from_scope(degree_scope)
+
+    return f"{year_str}{seq_str}{college_code}{degree_code}"
+
+
+# ─────────────────────────────────────────────
+# 교육과정 등록 (POST)
+#   - CurriculumProgram + ProgramRequirement[*]
+#   - requirement_code는 자동 생성 (프론트에서 안 받음)
+# ─────────────────────────────────────────────
 @app.post("/admin/register/curriculum")
 async def admin_register_curriculum_post(
     request: Request,
     db: Session = Depends(get_session),
 
-    program_type: str = Form(...),
-    course_name: str = Form(...),
-    degree_type: str = Form(...),
-    department_type: str = Form(...),
+    # ----- CurriculumProgram 기본 정보 -----
+    program_type: str = Form(...),          # 프로그램 유형 (인증제/교과인증과정/교과과정)
+    course_name: str = Form(...),           # 과정명
+    degree_type: str = Form(...),           # 학위 구분 (학부/대학원/통합 등)
+    department_type: str = Form(...),       # 학과 구분 (의과대학/공과대학/.../통합)
 
-    open_year: Optional[int] = Form(None),
-    open_semester: str = Form(""),
-    close_year: Optional[int] = Form(None),
-    close_semester: str = Form(""),
+    open_year: Optional[int] = Form(None),  # 개설연도 (없으면 None 허용)
+    open_semester: str = Form(""),          # 개설학기
+    close_year: Optional[int] = Form(None), # 폐지연도 (없으면 None)
+    close_semester: str = Form(""),         # 폐지학기
 
-    business_initiative_id: Optional[int] = Form(None),
+    business_initiative_id: Optional[int] = Form(None),  # 소속 사업단 (nullable)
 
-    college_scope: List[str] = Form([]),
-    degree_scope: List[str] = Form([]),
-    required_credit: List[float] = Form([]),
-    total_converted_required: List[float] = Form([]),
-    total_internship_required: List[float] = Form([]),
+    # ----- ProgramRequirement 다건 입력 -----
+    # 각 requirement-card에서 동일 name으로 반복해서 submit됨
+    college_scope: List[str] = Form([]),         # 적용 대학
+    degree_scope: List[str] = Form([]),          # 적용 학위
+    required_credit: List[float] = Form([]),     # 교과 학점 요구량
+    total_converted_required: List[float] = Form([]),    # 비교과 환산점수 요구치
+    total_internship_required: List[float] = Form([]),   # 인턴십 환산점수 요구치
 
     min_ai_med_talks: List[int] = Form([]),
     min_company_visit: List[int] = Form([]),
@@ -671,13 +713,16 @@ async def admin_register_curriculum_post(
     min_competition: List[int] = Form([]),
     min_etc: List[int] = Form([]),
 ):
+    # 0. 관리자 확인
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
     now_utc = datetime.utcnow()
-    this_year = datetime.now().year
+    this_year = datetime.now().year  # requirement_code 앞 4자리용
 
+    # 1. CurriculumProgram INSERT
     curriculum_row = models.CurriculumProgram(
+        # FK: nullable True
         business_initiative_id=business_initiative_id if business_initiative_id else None,
 
         program_type=program_type.strip(),
@@ -695,9 +740,10 @@ async def admin_register_curriculum_post(
     )
 
     db.add(curriculum_row)
-    db.flush()  # curriculum_row.id
+    db.flush()  # curriculum_row.id 확보
 
-    # 여러 ProgramRequirement insert
+    # 2. ProgramRequirement 여러 건 생성
+    #    여기서 requirement_code 자동 생성
     req_count = max(
         len(college_scope),
         len(degree_scope),
@@ -719,6 +765,7 @@ async def admin_register_curriculum_post(
         col_scope = college_scope[i] if i < len(college_scope) else ""
         deg_scope = degree_scope[i] if i < len(degree_scope) else ""
 
+        # requirement_code 규칙에 맞게 생성
         gen_code = _generate_requirement_code(
             db,
             college_scope=col_scope,
@@ -747,31 +794,41 @@ async def admin_register_curriculum_post(
             min_competition=int(min_competition[i]) if i < len(min_competition) else 0,
             min_etc=int(min_etc[i]) if i < len(min_etc) else 0,
         )
+
         db.add(pr)
 
+    # 3. commit
     db.commit()
 
+    # 4. 성공 후 등록 페이지로 redirect (?success=1 붙여서 alert 띄우는 기존 패턴 유지)
     return RedirectResponse(
         url="/admin/register/curriculum?success=1",
         status_code=302,
     )
 
 
+# ─────────────────────────────────────────────
+# 교과목 등록 (POST)
+#   - Course + CurriculumCourseMap[*]
+# ─────────────────────────────────────────────
 @app.post("/admin/register/course")
 async def admin_register_course_post(
     request: Request,
     db: Session = Depends(get_session),
 
+    # -------------------------
+    # 1) Course 기본 정보
+    # -------------------------
     course_code: str = Form(...),
     course_name_ko: str = Form(...),
     course_name_en: Optional[str] = Form(None),
 
-    degree_level: str = Form(...),
-    grade_level: int = Form(...),
-    offering_semester: str = Form(...),
-    offering_cycle: str = Form(...),
+    degree_level: str = Form(...),       # "학사","대학원" 등
+    grade_level: int = Form(...),        # 0~6
+    offering_semester: str = Form(...),  # "1학기","2학기"
+    offering_cycle: str = Form(...),     # "1년","2년","기타"
 
-    grading_scheme: str = Form(...),
+    grading_scheme: str = Form(...),     # "A~F","S/U" 등
     credit: int = Form(...),
     lecture_hours: int = Form(...),
     lab_hours: int = Form(...),
@@ -781,6 +838,9 @@ async def admin_register_course_post(
     capacity: Optional[int] = Form(None),
     enrollment: Optional[int] = Form(None),
 
+    # -------------------------
+    # 2) 교육과정 매핑 카드들 (여러 개)
+    # -------------------------
     curriculum_id: List[Optional[str]] = Form([]),
     required_flag: List[str] = Form([]),
 
@@ -791,21 +851,24 @@ async def admin_register_course_post(
     final_semester: Optional[List[Optional[str]]] = Form(None),
 ):
     """
-    Course + CurriculumCourseMap[*]
+    교과목(Course) 1건 + CurriculumCourseMap 여러건.
 
-    규칙:
-    - course_code 중복이면 insert 안하고 redirect(?error=duplicate_code)
-    - final_year 비어있으면 final_year/final_semester 둘 다 NULL
-    - curriculum_id 가 "" (미해당) 이거나 숫자변환 불가면 매핑 row 저장 안함
+    규칙 요약:
+    - course_code 이미 있으면 DB insert 안 하고 바로 redirect(error=duplicate_code)
+    - 최종 인정 연도/학기: 연도 비어있으면 둘 다 None 으로 저장
+    - curriculum_id 가 '미해당' (빈문자열 등) 이면 그 매핑 row는 아예 insert 안함
     """
+
+    # ── 관리자 인증
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    # 중복 체크
+    # ── 1) course_code 중복 여부 확인
     exists = db.exec(
         select(models.Course).where(models.Course.course_code == course_code)
     ).first()
     if exists:
+        # 이미 있는 코드라면 insert 안 하고 에러 쿼리 달아서 다시 form으로
         redirect_url = (
             "/admin/register/course"
             "?error=duplicate_code"
@@ -813,6 +876,7 @@ async def admin_register_course_post(
         )
         return RedirectResponse(url=redirect_url, status_code=303)
 
+    # ── 2) Course row 생성
     now = datetime.now(timezone.utc)
 
     new_course = models.Course(
@@ -839,8 +903,9 @@ async def admin_register_course_post(
         updated_at=now,
     )
     db.add(new_course)
-    db.flush()  # PK 확보
+    db.flush()  # course_code(PK) 확보
 
+    # ── 3) CurriculumCourseMap rows
     def safe_get(lst, idx, default=None):
         if lst is None:
             return default
@@ -858,13 +923,18 @@ async def admin_register_course_post(
     for i in range(row_count):
         raw_cur_id = curriculum_id[i] if i < len(curriculum_id) else None
 
-        # 교육과정 매핑 "미해당"이면 skip
+        # curriculum_id 파싱
+        #   - "" 또는 None → "미해당" 취급 → 이 row는 skip
+        #   - 숫자로 변환 가능하면 int로 사용
+        #   - 숫자 변환 불가능(예: "INTERN","ETC") → skip
         if raw_cur_id is None or raw_cur_id == "":
+            # 미해당 → 이 매핑은 DB에 저장하지 않음
             continue
         try:
             cur_id_db = int(raw_cur_id)
         except (TypeError, ValueError):
-            continue  # 숫자 아니면 skip
+            # 숫자 아님 → 이것도 미해당 취급 → skip
+            continue
 
         # 필수 여부
         req_flag_val = (
@@ -874,17 +944,20 @@ async def admin_register_course_post(
         )
 
         # 최초 인정
-        init_year_val = int(initial_year[i]) if i < len(initial_year) else None
+        init_year_val = (
+            int(initial_year[i]) if i < len(initial_year) else None
+        )
         init_sem_val = (
             initial_semester[i].strip()
             if i < len(initial_semester) and initial_semester[i]
             else ""
         )
 
-        # 최종 인정
+        # 최종 인정 (optional)
         fin_year_val = safe_get(final_year, i, None)
         fin_sem_val = safe_get(final_semester, i, None)
 
+        # 연도 입력 안 한 경우 → 둘 다 None
         if fin_year_val in (None, "", "null"):
             fin_year_val = None
             fin_sem_val = None
@@ -898,8 +971,8 @@ async def admin_register_course_post(
                 fin_sem_val = None
 
         new_map = models.CurriculumCourseMap(
-            curriculum_id=cur_id_db,
-            course_code=new_course.course_code,
+            curriculum_id=cur_id_db,                     # FK (유효한 int만)
+            course_code=new_course.course_code,          # FK
             required_flag=req_flag_val,
 
             initial_year=init_year_val,
@@ -910,8 +983,10 @@ async def admin_register_course_post(
         )
         db.add(new_map)
 
+    # ── 4) commit
     db.commit()
 
+    # ── 5) 성공 redirect (alert용 쿼리)
     redirect_url = (
         "/admin/register/course"
         "?success=1"
@@ -925,79 +1000,91 @@ async def admin_register_extracurricular_post(
     request: Request,
     db: Session = Depends(get_session),
 
+    # ───────── 프로그램 본문 정보 ─────────
     program_name: str = Form(...),
     program_type: str = Form(...),
 
-    open_year: int = Form(...),
-    open_month: int = Form(...),
+    open_year: int = Form(...),   # 커스텀 드롭다운에서 hidden input으로 year 넣어줌
+    open_month: int = Form(...),  # 커스텀 드롭다운에서 hidden input으로 month 넣어줌
 
     description: Optional[str] = Form(None),
 
+    # ───────── 교육과정 매핑 (반복행) ─────────
     curriculum_id: List[str] = Form([]),
     recognized_credit_ratio: List[str] = Form([]),
 ):
     """
-    비교과 Program 1건 + CurriculumProgramMap[*]
+    ExtracurricularProgram 1건 + 매핑 여러건을 함께 저장.
 
     규칙:
-    - curriculum_id 가 "" (미해당) 이면 insert 안 함
-    - curriculum_id 정수 변환 실패해도 insert 안 함
-    - recognized_credit_ratio 비어있으면 None
+    - curriculum_id가 "" (미해당) 이면 그 row는 insert 안 함.
+    - curriculum_id를 int로 변환 못 하면 그 row도 skip.
+    - recognized_credit_ratio 비어 있으면 None 으로 저장.
     """
+
+    # 관리자 체크
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
     now = datetime.now(timezone.utc)
 
-    # Program INSERT (table=program)
-    prog = models.Program(
+    # 1) ExtracurricularProgram INSERT
+    prog = models.ExtracurricularProgram(
         program_name=program_name.strip(),
         program_type=program_type.strip(),
         open_year=int(open_year),
         open_month=int(open_month),
+        description=description.strip() if description else None,
         created_at=now,
         updated_at=now,
     )
     db.add(prog)
     db.flush()  # prog.id 확보
 
+    # 2) 매핑 행들 저장
+    # curriculum_id / recognized_credit_ratio 는 같은 index로 묶인다고 가정
     row_count = max(len(curriculum_id), len(recognized_credit_ratio))
 
     for i in range(row_count):
         raw_cur = curriculum_id[i] if i < len(curriculum_id) else ""
         raw_ratio = recognized_credit_ratio[i] if i < len(recognized_credit_ratio) else ""
 
-        # 미해당이면 skip
+        # 2-1. 교육과정이 "(미해당)"이면 skip
         if raw_cur is None or raw_cur.strip() == "":
             continue
 
-        # curriculum_id → int (CurriculumProgram FK)
+        # 2-2. curriculum_id 는 실제 CurriculumProgram.id (정수)여야 함
         try:
             cur_id_int = int(raw_cur)
         except (TypeError, ValueError):
-            continue  # 숫자 못 만들면 skip
+            # 숫자 아님 (이상한 값 들어왔거나 미래에 "기타" 같은 특수타입 넣으려 한 경우)
+            # 이 매핑은 그냥 안 넣는다.
+            continue
 
-        # 환산점수 파싱
+        # 2-3. 환산 점수/가중치 파싱
         if raw_ratio is None or raw_ratio.strip() == "":
             ratio_val = None
         else:
             try:
                 ratio_val = float(raw_ratio)
             except ValueError:
+                # 숫자 변환 실패하면 None 처리 (또는 continue 해도 되는데 None으로 둘게)
                 ratio_val = None
 
-        # CurriculumProgramMap INSERT
-        link_row = models.CurriculumProgramMap(
+        progmap = models.ExtracurricularProgramMap(
             program_id=prog.id,
             curriculum_id=cur_id_int,
             recognized_credit_ratio=ratio_val,
             created_at=now,
             updated_at=now,
         )
-        db.add(link_row)
+        db.add(progmap)
 
+    # 3) commit
     db.commit()
 
+    # 4) 성공 후 다시 등록 페이지로
+    # → /admin/register/extracurricular?success=1&program_name=...
     redirect_url = (
         "/admin/register/extracurricular"
         "?success=1"
@@ -1006,10 +1093,30 @@ async def admin_register_extracurricular_post(
     return RedirectResponse(url=redirect_url, status_code=303)
 
 
-# -------------------------------------------------
-# view pages (GET)
-# -------------------------------------------------
 
+@app.get("/admin/view/students", response_class=HTMLResponse)
+def admin_view_students(request: Request, db: Session = Depends(get_session)):
+    if not require_admin(request):
+        return RedirectResponse(url="/login", status_code=302)
+
+    students = db.exec(
+        select(models.Student).order_by(models.Student.updated_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "admin_view_students.html",
+        {
+            "request": request,
+            "active": "view",
+            "students": students,
+        },
+    )
+
+
+# ─────────────────────────────────────────────
+# 학생 조회 (이미 잘 작동하니까 그대로 두면 됨)
+# GET /admin/view/students 렌더: admin_view_students.html
+# ─────────────────────────────────────────────
 @app.get("/admin/view/students", response_class=HTMLResponse)
 def admin_view_students(
     request: Request,
@@ -1031,7 +1138,10 @@ def admin_view_students(
         },
     )
 
-
+# ─────────────────────────────────────────────
+# 주관사업 조회
+# GET /admin/view/business -> admin_view_business.html
+# ─────────────────────────────────────────────
 @app.get("/admin/view/business", response_class=HTMLResponse)
 def admin_view_business(
     request: Request,
@@ -1055,6 +1165,12 @@ def admin_view_business(
     )
 
 
+# ─────────────────────────────────────────────
+# 교육과정 조회
+# GET /admin/view/curriculum -> admin_view_curriculum.html
+#   curricula: CurriculumProgram
+#   req_map : { curriculum_id: [ProgramRequirement, ...] }
+# ─────────────────────────────────────────────
 @app.get("/admin/view/curriculum", response_class=HTMLResponse)
 def admin_view_curriculum(
     request: Request,
@@ -1063,170 +1179,41 @@ def admin_view_curriculum(
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    Cur = models.CurriculumProgram
-    # CurriculumProgram에서 우리가 저장한다고 알던 필드:
-    #   id
-    #   program_type
-    #   course_name
-    #   degree_type
-    #   department_type
-    #   open_year
-    #   open_semester
-    #   close_year
-    #   close_semester
-    #   business_initiative_id
-    #   created_at
-    #   updated_at
-    cur_cols = [
-        Cur.id,
-        Cur.program_type,
-        Cur.course_name,
-        Cur.degree_type,
-        Cur.department_type,
-        Cur.open_year,
-        Cur.open_semester,
-        Cur.close_year,
-        Cur.close_semester,
-        Cur.business_initiative_id,
-        Cur.created_at,
-        Cur.updated_at,
-    ]
+    curricula = db.exec(
+        select(models.CurriculumProgram)
+        .order_by(models.CurriculumProgram.updated_at.desc())
+    ).all()
 
-    try:
-        order_col = (
-            Cur.updated_at if hasattr(Cur, "updated_at")
-            else Cur.created_at if hasattr(Cur, "created_at")
-            else Cur.id
-        )
-        rows = db.exec(select(*cur_cols).order_by(order_col.desc())).all()
-    except Exception:
-        rows = db.exec(select(*cur_cols)).all()
-
-    safe_curricula = []
-    for row in rows:
-        (
-            cid,
-            program_type,
-            course_name,
-            degree_type,
-            department_type,
-            open_year,
-            open_semester,
-            close_year,
-            close_semester,
-            business_initiative_id,
-            created_at,
-            updated_at,
-        ) = row
-
-        safe_curricula.append({
-            "id": cid,
-            "program_type": program_type,
-            "course_name": course_name,
-            "degree_type": degree_type,
-            "department_type": department_type,
-            "open_year": open_year,
-            "open_semester": open_semester,
-            "close_year": close_year,
-            "close_semester": close_semester,
-            "business_initiative_id": business_initiative_id,
-            "created_at": created_at,
-            "updated_at": updated_at,
-        })
-
-    # ProgramRequirement에서 우리가 넣는다고 알고 있는 필드:
-    #   curriculum_id
-    #   requirement_code
-    #   college_scope
-    #   degree_scope
-    #   required_credit
-    #   total_converted_required
-    #   total_internship_required
-    #   min_ai_med_talks
-    #   min_company_visit
-    #   min_hospital_visit
-    #   min_seminar
-    #   min_exchange_forum
-    #   min_expo
-    #   min_academic_conf
-    #   min_competition
-    #   min_etc
-    PR = models.ProgramRequirement
-    pr_cols = [
-        PR.curriculum_id,
-        PR.requirement_code,
-        PR.college_scope,
-        PR.degree_scope,
-        PR.required_credit,
-        PR.total_converted_required,
-        PR.total_internship_required,
-        PR.min_ai_med_talks,
-        PR.min_company_visit,
-        PR.min_hospital_visit,
-        PR.min_seminar,
-        PR.min_exchange_forum,
-        PR.min_expo,
-        PR.min_academic_conf,
-        PR.min_competition,
-        PR.min_etc,
-    ]
-
-    # 모든 requirement 한 번에 긁고 curriculum_id별로 묶기
-    try:
-        req_rows = db.exec(select(*pr_cols)).all()
-    except Exception:
-        req_rows = []
-
-    req_map: dict[int, list[dict]] = {}
-    for r in req_rows:
-        (
-            curriculum_id,
-            requirement_code,
-            college_scope,
-            degree_scope,
-            required_credit,
-            total_converted_required,
-            total_internship_required,
-            min_ai_med_talks,
-            min_company_visit,
-            min_hospital_visit,
-            min_seminar,
-            min_exchange_forum,
-            min_expo,
-            min_academic_conf,
-            min_competition,
-            min_etc,
-        ) = r
-
-        req_map.setdefault(curriculum_id, []).append({
-            "requirement_code": requirement_code,
-            "college_scope": college_scope,
-            "degree_scope": degree_scope,
-            "required_credit": required_credit,
-            "total_converted_required": total_converted_required,
-            "total_internship_required": total_internship_required,
-            "min_ai_med_talks": min_ai_med_talks,
-            "min_company_visit": min_company_visit,
-            "min_hospital_visit": min_hospital_visit,
-            "min_seminar": min_seminar,
-            "min_exchange_forum": min_exchange_forum,
-            "min_expo": min_expo,
-            "min_academic_conf": min_academic_conf,
-            "min_competition": min_competition,
-            "min_etc": min_etc,
-        })
+    # 각 교육과정별 requirement 모아서 dict로
+    req_map: dict[int, list[models.ProgramRequirement]] = {}
+    if curricula:
+        cur_ids = [c.id for c in curricula]
+        all_reqs = db.exec(
+            select(models.ProgramRequirement)
+            .where(models.ProgramRequirement.curriculum_id.in_(cur_ids))
+            .order_by(models.ProgramRequirement.id.asc())
+        ).all()
+        for r in all_reqs:
+            req_map.setdefault(r.curriculum_id, []).append(r)
 
     return templates.TemplateResponse(
         "admin_view_curriculum.html",
         {
             "request": request,
             "active": "view",
-            "curricula": safe_curricula,  # list[dict]
-            "req_map": req_map,          # dict[id] -> list[dict]
+            "curricula": curricula,
+            "req_map": req_map,
         },
     )
 
 
+# ─────────────────────────────────────────────
+# 교과목 조회
+# GET /admin/view/course -> admin_view_course.html
+#   courses: Course
+#   mapping_map: { course_code: [CurriculumCourseMap,...] }
+#   curriculum_name_by_id: { curriculum_id: 과정명 }
+# ─────────────────────────────────────────────
 @app.get("/admin/view/course", response_class=HTMLResponse)
 def admin_view_course(
     request: Request,
@@ -1235,211 +1222,82 @@ def admin_view_course(
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
-    # 여기서 핵심: Course 전체 객체 그대로 select(models.Course) 하지 말고
-    # DB에 실제로 존재하는 컬럼만 뽑는다.
-    #
-    # 우리가 폼에서 받았던 필드들 기억해보면:
-    #   course_code (PK)
-    #   course_name_ko
-    #   course_name_en
-    #   degree_level
-    #   grade_level
-    #   offering_semester
-    #   offering_cycle
-    #   grading_scheme
-    #   credit
-    #   lecture_hours
-    #   lab_hours
-    #   department_name
-    #   instructor_name
-    #   capacity
-    #   enrollment
-    #   created_at
-    #   updated_at
-    #
-    # 이 컬럼들은 전부 실제 INSERT 했던 애들이라 DB에도 존재한다고 봐도 돼.
-    # curriculumprogram_relation 이런 건 안 뽑는다.
+    courses = db.exec(
+        select(models.Course).order_by(models.Course.updated_at.desc())
+    ).all()
 
-    Course = models.Course
-    cols = [
-        Course.course_code,
-        Course.course_name_ko,
-        Course.course_name_en,
-        Course.degree_level,
-        Course.grade_level,
-        Course.offering_semester,
-        Course.offering_cycle,
-        Course.grading_scheme,
-        Course.credit,
-        Course.lecture_hours,
-        Course.lab_hours,
-        Course.department_name,
-        Course.instructor_name,
-        Course.capacity,
-        Course.enrollment,
-        Course.created_at,
-        Course.updated_at,
-    ]
-
-    # updated_at 기준 정렬 시도, 없으면 created_at, 그것도 없으면 code
-    try:
-        order_col = (
-            Course.updated_at if hasattr(Course, "updated_at")
-            else Course.created_at if hasattr(Course, "created_at")
-            else Course.course_code
-        )
-        course_rows = db.exec(
-            select(*cols).order_by(order_col.desc())
+    # 해당 교과목들의 매핑 모두 조회
+    course_codes = [c.course_code for c in courses]
+    mapping_map: dict[str, list[models.CurriculumCourseMap]] = {}
+    if course_codes:
+        all_maps = db.exec(
+            select(models.CurriculumCourseMap)
+            .where(models.CurriculumCourseMap.course_code.in_(course_codes))
+            .order_by(models.CurriculumCourseMap.initial_year.asc())
         ).all()
-    except Exception:
-        course_rows = db.exec(select(*cols)).all()
-
-    # course_rows 는 튜플 리스트이기 때문에 템플릿에서 쓰기 불편하니까 dict로 바꿔주자
-    safe_courses = []
-    for row in course_rows:
-        (
-            course_code,
-            course_name_ko,
-            course_name_en,
-            degree_level,
-            grade_level,
-            offering_semester,
-            offering_cycle,
-            grading_scheme,
-            credit,
-            lecture_hours,
-            lab_hours,
-            department_name,
-            instructor_name,
-            capacity,
-            enrollment,
-            created_at,
-            updated_at,
-        ) = row
-
-        safe_courses.append({
-            "course_code": course_code,
-            "course_name_ko": course_name_ko,
-            "course_name_en": course_name_en,
-            "degree_level": degree_level,
-            "grade_level": grade_level,
-            "offering_semester": offering_semester,
-            "offering_cycle": offering_cycle,
-            "grading_scheme": grading_scheme,
-            "credit": credit,
-            "lecture_hours": lecture_hours,
-            "lab_hours": lab_hours,
-            "department_name": department_name,
-            "instructor_name": instructor_name,
-            "capacity": capacity,
-            "enrollment": enrollment,
-            "created_at": created_at,
-            "updated_at": updated_at,
-        })
-
-    # 매핑 테이블(CurriculumCourseMap) 읽어오기
-    # 이건 모델에서 우리가 실제로 INSERT한 필드들만 신뢰한다:
-    #   curriculum_id
-    #   course_code
-    #   required_flag
-    #   initial_year
-    #   initial_semester
-    #   final_year
-    #   final_semester
-    CCM = models.CurriculumCourseMap
-    map_cols = [
-        CCM.curriculum_id,
-        CCM.course_code,
-        CCM.required_flag,
-        CCM.initial_year,
-        CCM.initial_semester,
-        CCM.final_year,
-        CCM.final_semester,
-    ]
-
-    try:
-        all_maps = db.exec(select(*map_cols)).all()
-    except Exception:
-        all_maps = []
-
-    # course_code 기준으로 묶는다
-    mapping_map: dict[str, list[dict]] = {}
-    for m in all_maps:
-        (
-            curriculum_id,
-            course_code,
-            required_flag,
-            initial_year,
-            initial_semester,
-            final_year,
-            final_semester,
-        ) = m
-        mapping_map.setdefault(course_code, []).append({
-            "curriculum_id": curriculum_id,
-            "required_flag": required_flag,
-            "initial_year": initial_year,
-            "initial_semester": initial_semester,
-            "final_year": final_year,
-            "final_semester": final_semester,
-        })
+        for m in all_maps:
+            mapping_map.setdefault(m.course_code, []).append(m)
 
     # 교육과정 이름 lookup 테이블
-    Cur = models.CurriculumProgram
-    try:
-        cur_cols = [Cur.id, Cur.course_name]
-        curricula_all = db.exec(select(*cur_cols)).all()
-    except Exception:
-        curricula_all = []
+    curricula_all = db.exec(select(models.CurriculumProgram)).all()
+    curriculum_name_by_id = {
+        cur.id: cur.course_name for cur in curricula_all
+    }
 
-    curriculum_name_by_id: dict[int, str] = {}
-    for (cid, cname) in curricula_all:
-        curriculum_name_by_id[cid] = cname
-
-    # 템플릿으로 전달
     return templates.TemplateResponse(
         "admin_view_course.html",
         {
             "request": request,
             "active": "view",
-            "courses": safe_courses,                 # list[dict]
-            "mapping_map": mapping_map,              # dict[course_code] -> list[dict]
-            "curriculum_name_by_id": curriculum_name_by_id,  # dict[int] -> str
+            "courses": courses,
+            "mapping_map": mapping_map,
+            "curriculum_name_by_id": curriculum_name_by_id,
         },
     )
 
 
+# ─────────────────────────────────────────────
+# 비교과 프로그램 조회
+# GET /admin/view/extracurricular -> admin_view_extracurricular.html
+#
+#   programs: ExtracurricularProgram
+#   prog_map: { program_id: [ExtracurricularCurriculumMap,...] }
+#   curriculum_name_by_id: { curriculum_id: 과정명 }
+#
+# !!! 여기서 models.ExtracurricularCurriculumMap 이름은
+#     네 실제 모델 이름(비교과↔교육과정 매핑 테이블)로 맞춰야 함.
+# ─────────────────────────────────────────────
 @app.get("/admin/view/extracurricular", response_class=HTMLResponse)
 def admin_view_extracurricular(
     request: Request,
     db: Session = Depends(get_session),
 ):
-    """
-    비교과 Program 조회 페이지.
-
-    programs: [Program,...]
-    prog_map: { program_id: [CurriculumProgramMap,...] }
-              (각 항목에는 curriculum_id, recognized_credit_ratio ...)
-    curriculum_name_by_id: { curriculum_id: 과정명 }
-    """
     if not require_admin(request):
         return RedirectResponse(url="/login", status_code=302)
 
     programs = db.exec(
-        select(models.Program)
-        .order_by(models.Program.updated_at.desc())
+        select(models.ExtracurricularProgram)
+        .order_by(models.ExtracurricularProgram.updated_at.desc())
     ).all()
 
-    prog_map: dict[int, list[models.CurriculumProgramMap]] = {}
+    prog_map: dict[int, list] = {}
+
     if programs:
         prog_ids = [p.id for p in programs]
+
+        # ←← 여기를 네 모델명에 맞게 바꿔.
+        # 예: models.ExtracurricularCurriculumMap 라는 모델이 있고
+        #     필드가 program_id, curriculum_id, recognized_credit_ratio 라고 가정할게.
         all_maps = db.exec(
-            select(models.CurriculumProgramMap)
-            .where(models.CurriculumProgramMap.program_id.in_(prog_ids))
-            .order_by(models.CurriculumProgramMap.id.asc())
+            select(models.ExtracurricularCurriculumMap)
+            .where(models.ExtracurricularCurriculumMap.program_id.in_(prog_ids))
+            .order_by(models.ExtracurricularCurriculumMap.id.asc())
         ).all()
+
         for m in all_maps:
             prog_map.setdefault(m.program_id, []).append(m)
 
+    # 교육과정 이름 lookup
     curricula_all = db.exec(select(models.CurriculumProgram)).all()
     curriculum_name_by_id = {
         cur.id: cur.course_name for cur in curricula_all
@@ -1455,3 +1313,4 @@ def admin_view_extracurricular(
             "curriculum_name_by_id": curriculum_name_by_id,
         },
     )
+ 

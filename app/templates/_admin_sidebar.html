@@ -1,101 +1,126 @@
-<!-- app/templates/_admin_sidebar.html -->
-<aside class="side">
-  <div class="brand">관리자</div>
+<aside class="side" role="navigation" aria-label="관리자 사이드바">
+  <div class="topbar">
+    <div class="brand">관리자</div>
+    <a
+      class="home-pill {{ 'active' if active=='dashboard' else '' }}"
+      href="/admin"
+      title="홈(대시보드)"
+      aria-label="홈(대시보드)"
+    >
+      홈
+    </a>
+  </div>
+
   <nav class="nav">
-    <a href="/admin" class="{{ 'active' if active=='register' else '' }}">등록</a>
-    
-    <!-- 조회 섹션 -->
-    <div class="menu-section">
-      <div class="menu-header" onclick="toggleMenu(this)">
-        <span>조회</span>
+    <!-- 등록 섹션 -->
+    <div
+      class="menu-section {{ 'open' if active == 'register' else '' }}"
+      data-section="register"
+    >
+      <button class="menu-header" type="button" onclick="toggleMenu(this)">
+        <span>등록</span>
         <span class="arrow">▼</span>
-      </div>
-      <div class="submenu">
-        <a href="/admin/view/students"         class="{{ 'active' if active=='students' else '' }}">학생</a>
-        <a href="/admin/view/curriculum"       class="{{ 'active' if active=='curriculum' else '' }}">교과인증과정</a>
-        <a href="/admin/view/certifications"   class="{{ 'active' if active=='certifications' else '' }}">인증제</a>
-        <a href="/admin/view/extracurriculars" class="{{ 'active' if active=='extracurriculars' else '' }}">비교과</a>
+      </button>
+
+      <div class="submenu {{ 'open' if active == 'register' else '' }}">
+        <a
+          href="/admin/register/student"
+          class="{% if request.url.path.startswith('/admin/register/student') %}active{% endif %}"
+        >
+          학생정보 등록
+        </a>
+
+        <a
+          href="/admin/register/business"
+          class="{% if request.url.path.startswith('/admin/register/business') %}active{% endif %}"
+        >
+          사업단 주관사업 등록
+        </a>
+
+        <a
+          href="/admin/register/curriculum"
+          class="{% if request.url.path.startswith('/admin/register/curriculum') %}active{% endif %}"
+        >
+          교육과정 등록
+        </a>
+
+        <a
+          href="/admin/register/course"
+          class="{% if request.url.path.startswith('/admin/register/course') %}active{% endif %}"
+        >
+          교과목 등록
+        </a>
+
+        <a
+          href="/admin/register/extracurricular"
+          class="{% if request.url.path.startswith('/admin/register/extracurricular') %}active{% endif %}"
+        >
+          비교과 프로그램 등록
+        </a>
       </div>
     </div>
-    
-    <a href="/logout" style="margin-top:10px;">로그아웃</a>
+
+    <!-- 조회 섹션 -->
+    <div
+      class="menu-section {{ 'open' if active in ['view_students','view_business','view_curriculum','view_course','view_extracurricular'] else '' }}"
+      data-section="view"
+    >
+      <button class="menu-header" type="button" onclick="toggleMenu(this)">
+        <span>조회</span>
+        <span class="arrow">▼</span>
+      </button>
+
+      <div class="submenu {{ 'open' if active in ['view_students','view_business','view_curriculum','view_course','view_extracurricular'] else '' }}">
+        <a
+          href="/admin/view/students"
+          class="{% if request.url.path.startswith('/admin/view/students') %}active{% endif %}"
+        >
+          학생 조회
+        </a>
+
+        <a
+          href="/admin/view/business"
+          class="{% if request.url.path.startswith('/admin/view/business') %}active{% endif %}"
+        >
+          사업단 주관사업 조회
+        </a>
+
+        <a
+          href="/admin/view/curriculum"
+          class="{% if request.url.path.startswith('/admin/view/curriculum') %}active{% endif %}"
+        >
+          교육과정 조회
+        </a>
+
+        <a
+          href="/admin/view/course"
+          class="{% if request.url.path.startswith('/admin/view/course') %}active{% endif %}"
+        >
+          교과목 조회
+        </a>
+
+        <a
+          href="/admin/view/extracurricular"
+          class="{% if request.url.path.startswith('/admin/view/extracurricular') %}active{% endif %}"
+        >
+          비교과 프로그램 조회
+        </a>
+      </div>
+    </div>
+
+    <a href="/logout" class="logout">로그아웃</a>
   </nav>
 </aside>
 
-<style>
-/* 기존 스타일에 추가 */
-.menu-section {
-  margin: 6px 0;
-}
-
-.menu-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #cbd5e1;
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 16px; /* 등록과 같은 크기 */
-  font-weight: normal;
-  transition: background-color 0.2s;
-}
-
-.menu-header:hover {
-  background: #1f2937;
-  color: #fff;
-}
-
-.arrow {
-  font-size: 12px;
-  transition: transform 0.3s;
-}
-
-.submenu {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
-  margin-left: 12px;
-}
-
-.submenu.open {
-  max-height: 200px; /* 충분한 높이 */
-}
-
-.submenu a {
-  font-size: 14px;
-  color: #9ca3af;
-  padding: 8px 12px;
-  margin-bottom: 4px;
-}
-
-.submenu a:hover, .submenu a.active {
-  background: #374151;
-  color: #fff;
-}
-
-.menu-section.open .arrow {
-  transform: rotate(180deg);
-}
-</style>
-
 <script>
-function toggleMenu(element) {
-  const menuSection = element.parentElement;
-  const submenu = menuSection.querySelector('.submenu');
-  
-  menuSection.classList.toggle('open');
-  submenu.classList.toggle('open');
-}
-
-// 현재 페이지가 조회 하위 메뉴인 경우 자동으로 열기
-document.addEventListener('DOMContentLoaded', function() {
-  const activeSubmenuItem = document.querySelector('.submenu a.active');
-  if (activeSubmenuItem) {
-    const menuSection = activeSubmenuItem.closest('.menu-section');
-    const submenu = menuSection.querySelector('.submenu');
-    menuSection.classList.add('open');
-    submenu.classList.add('open');
+  // 기존에 쓰던 토글 스크립트 없으면 추가
+  function toggleMenu(btn) {
+    const section = btn.closest('.menu-section');
+    section.classList.toggle('open');
+    // submenu 열고 닫기
+    const submenu = section.querySelector('.submenu');
+    if (submenu) {
+      submenu.classList.toggle('open');
+    }
   }
-});
 </script>

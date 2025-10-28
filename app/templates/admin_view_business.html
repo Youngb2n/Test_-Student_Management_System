@@ -1,0 +1,62 @@
+{% extends "admin_base.html" %}
+{% block title %}주관사업 조회{% endblock %}
+
+{% block content %}
+<section class="section-card">
+  <header class="section-card__header">
+    <h1 class="section-card__title">사업단 주관사업 목록</h1>
+    <p class="section-card__desc">
+      등록된 사업(프로젝트) 현황입니다.
+    </p>
+  </header>
+
+  <div class="section-card__inner scroll-x">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>프로젝트명</th>
+          <th>지원기관</th>
+          <th>전담/참여기관</th>
+          <th>과제명</th>
+          <th>기간</th>
+          <th>수혜목표</th>
+          <th>성과목표</th>
+          <th>진로연계목표</th>
+          <th>최근수정일</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in initiatives %}
+        <tr>
+          <td>{{ b.project_name }}</td>
+          <td>{{ b.support_agency or "-" }}</td>
+          <td>{{ b.specialized_institute or "-" }}</td>
+          <td>{{ b.research_task_name or "-" }}</td>
+          <td>
+            {{ b.start_date.strftime("%Y-%m-%d") if b.start_date else "-" }}
+            ~
+            {{ b.end_date.strftime("%Y-%m-%d") if b.end_date else "-" }}
+          </td>
+          <td>{{ b.beneficiary_target if b.beneficiary_target is not none else "-" }}</td>
+          <td>{{ b.output_target if b.output_target is not none else "-" }}</td>
+          <td>{{ b.career_linked_target if b.career_linked_target is not none else "-" }}</td>
+          <td>{{ (b.updated_at or b.created_at).strftime("%Y-%m-%d") if b.updated_at else "" }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center; color:#64748b;">
+            등록된 사업이 없습니다.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="section-card__footer">
+    <p class="text-dim">
+      ※ 수정 / KPI 추적 Dashboard / 참여자 관리 기능은 추후 제공 예정입니다.
+    </p>
+  </footer>
+</section>
+{% endblock %}

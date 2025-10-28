@@ -1,0 +1,91 @@
+{% extends "admin_base.html" %}
+{% block title %}비교과 프로그램 조회{% endblock %}
+
+{% block content %}
+<section class="section-card">
+  <header class="section-card__header">
+    <h1 class="section-card__title">비교과 프로그램 목록</h1>
+  </header>
+
+  <div class="section-card__inner">
+    {% if programs|length == 0 %}
+      <p class="field-hint-block">등록된 비교과 프로그램이 없습니다.</p>
+    {% endif %}
+
+    {% for p in programs %}
+      <div class="subsection-card" style="margin-bottom:1rem;">
+        <div class="subsection-card__header">
+          <div style="display:flex; flex-wrap:wrap; gap:.5rem; align-items:baseline;">
+            <strong>{{ p.program_name }}</strong>
+            <span class="badge-soft">
+              {{ p.program_type }}
+            </span>
+            <span class="badge-soft">
+              {{ p.open_year }}년 {{ p.open_month }}월 개최
+            </span>
+          </div>
+        </div>
+
+        <div class="subsection-card__body">
+          <dl class="definition-grid">
+            <div class="definition-grid__row">
+              <dt>업데이트</dt>
+              <dd>{{ p.updated_at }}</dd>
+            </div>
+          </dl>
+
+          <div class="subsection-card nested" style="margin-top:1rem;">
+            <div class="subsection-card__header">
+              <strong>교육과정 매핑 / 환산 점수</strong>
+            </div>
+
+            <div class="subsection-card__body">
+              {% set maps = prog_map.get(p.id, []) %}
+              {% if maps|length == 0 %}
+                <p class="field-hint-block">매핑 없음</p>
+              {% else %}
+                <div class="simple-table-wrapper">
+                  <table class="simple-table">
+                    <thead>
+                      <tr>
+                        <th>교육과정</th>
+                        <th>환산 점수</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for m in maps %}
+                      <tr>
+                        <td>
+                          {% if m.curriculum_id %}
+                            {{ curriculum_name_by_id.get(m.curriculum_id, "(알 수 없음)") }}
+                            <span class="text-dim">[#{{ m.curriculum_id }}]</span>
+                          {% else %}
+                            (미해당)
+                          {% endif %}
+                        </td>
+                        <td>{{ m.recognized_credit_ratio }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="subsection-card nested" style="margin-top:1rem;">
+            <div class="subsection-card__header">
+              <strong>참가자 목록 (추후 개발 예정)</strong>
+            </div>
+            <div class="subsection-card__body">
+              <p class="field-hint-block">
+                참가자(학생) 출석 / 인정점수 기록 기능은 추후 개발 예정입니다.
+              </p>
+            </div>
+          </div>
+        </div><!-- /.subsection-card__body -->
+      </div><!-- /.subsection-card -->
+    {% endfor %}
+  </div><!-- /.section-card__inner -->
+</section>
+{% endblock %}

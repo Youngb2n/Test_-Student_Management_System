@@ -1,0 +1,195 @@
+{% extends "admin_base.html" %}
+
+{% block title %}사업단 주관사업 등록{% endblock %}
+
+{% block content %}
+
+{% from "partials/_section_card.html" import section_card %}
+
+<form class="admin-form" method="post" action="/admin/register/business">
+
+  {# ───────── 사업 기본 정보 ───────── #}
+  {% call section_card("사업 기본 정보", 1) %}
+    <div class="section-card__inner">
+
+      <div class="field">
+        <label class="field-label" for="project_name">
+          사업명
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="project_name"
+          name="project_name"
+          type="text"
+          placeholder="예: AI·의료데이터 인재양성사업"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="support_agency">
+          지원부처
+        </label>
+        <input
+          class="input-control"
+          id="support_agency"
+          name="support_agency"
+          type="text"
+          placeholder="예: 과학기술정보통신부"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="specialized_institute">
+          전문기관
+        </label>
+        <input
+          class="input-control"
+          id="specialized_institute"
+          name="specialized_institute"
+          type="text"
+          placeholder="예: 정보통신기획평가원(IITP)"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="research_task_name">
+          연구과제명
+        </label>
+        <input
+          class="input-control"
+          id="research_task_name"
+          name="research_task_name"
+          type="text"
+          placeholder="예: AI기반 정밀의료 플랫폼 고도화"
+        />
+      </div>
+
+    </div>
+  {% endcall %}
+
+  {# ───────── 사업 일정 ───────── #}
+  {% call section_card("사업 일정", 2) %}
+    <div class="section-card__inner">
+
+      <div class="field">
+        <label class="field-label" for="start_date">
+          시작일자
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="start_date"
+          name="start_date"
+          type="date"
+          min="2000-01-01"
+          max="2100-12-31"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="end_date">
+          종료일자
+          <span class="field-required">*</span>
+        </label>
+        <input
+          class="input-control"
+          id="end_date"
+          name="end_date"
+          type="date"
+          min="2000-01-01"
+          max="2100-12-31"
+          required
+        />
+      </div>
+
+    </div>
+  {% endcall %}
+
+  {# ───────── 사업 목표(KPI) ───────── #}
+  {% call section_card("사업 목표 (KPI)", 2) %}
+    <div class="section-card__inner">
+
+      <div class="field">
+        <label class="field-label" for="beneficiary_target">
+          수혜 목표(명/인원)
+        </label>
+        <input
+          class="input-control"
+          id="beneficiary_target"
+          name="beneficiary_target"
+          type="number"
+          step="1"
+          min="0"
+          placeholder="예: 50"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="output_target">
+          배출 목표(명/인원)
+        </label>
+        <input
+          class="input-control"
+          id="output_target"
+          name="output_target"
+          type="number"
+          step="1"
+          min="0"
+          placeholder="예: 30"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="career_linked_target">
+          진로/취창업 목표(명/인원)
+        </label>
+        <input
+          class="input-control"
+          id="career_linked_target"
+          name="career_linked_target"
+          type="number"
+          step="1"
+          min="0"
+          placeholder="예: 10"
+        />
+      </div>
+
+    </div>
+  {% endcall %}
+
+  {# ───────── 하단 액션 공통 파셜 ───────── #}
+  {% include "partials/_form_actions.html" %}
+</form>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const start = document.getElementById("start_date");
+  const end = document.getElementById("end_date");
+  // ---- (1) 종료일이 시작일보다 빠르면 기본 브라우저 말풍선으로 막는다 ----
+  function validateDates() {
+    if (start.value && end.value) {
+      if (end.value < start.value) {
+        end.setCustomValidity("종료일은 시작일 이후여야 합니다.");
+      } else {
+        end.setCustomValidity(""); // 정상 상태로 복귀
+      }
+    } else {
+      end.setCustomValidity("");
+    }
+  }
+
+  start.addEventListener("change", validateDates);
+  end.addEventListener("change", validateDates);
+
+  // ---- (2) 등록 성공 시 alert 띄우기 (학생 등록과 동일 패턴) ----
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("success") === "1") {
+    alert("사업단 주관사업이 성공적으로 등록되었습니다.");
+    // 새로고침 시 또 안 뜨게 쿼리스트링 제거
+    history.replaceState(null, "", window.location.pathname);
+  }
+});
+</script>
+{% endblock %}
