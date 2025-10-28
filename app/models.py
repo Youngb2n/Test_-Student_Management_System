@@ -289,10 +289,7 @@ class Course(Base):
     course_code: Mapped[str] = mapped_column(
         String(50), primary_key=True, nullable=False
     )  # 교과목번호
-    curriculumprogram_relation: Mapped[str] = mapped_column(
-        String(10), nullable=False
-    )  # 교육과정지정교과목 등록/제외 여부  !!교육과정지정교과목으로 되면 자동으로 "등록" default= "제외",입력단계에서 어떤 교육과정과 연결되는지 추가(CurriculumCourseMap)할 수 있고 CurriculumCourseMap정보 입력 가능 하도록 구성, + 버튼을 통해서 여러개 추가할 수 있도록 구성!!
-    
+
     # --- 교과목 기본정보 ---
     course_name_ko: Mapped[str] = mapped_column(
         String(200), nullable=False
@@ -623,29 +620,23 @@ class ProgramRequirement(Base):
         nullable=False,
         comment="적용 기준(학위): '학부','석사','박사','대학원생','통합' 등",
     )# 적용기준(학위) @@등록선택옵션 (학부/석사/박사/대학원생)@@
-
-    curriculum_name: Mapped[str] = mapped_column(
-        String(200),
-        nullable=False,
-        comment="교육과정명(사람이 보는 명칭; display용)",
-    )
     
     # 교과 학점 요구량
-    required_credit: Mapped[float] = mapped_column(
+    required_credit: Mapped[int] = mapped_column(
         Float,
         nullable=False,
         comment="해당 교육과정 이수에 필요한 교과 학점 요구량",
     )
 
     # 비교과 환산 점수 누적 최소 요구치
-    total_converted_required: Mapped[float] = mapped_column(
+    total_converted_required: Mapped[int] = mapped_column(
         Float,
         nullable=False,
         comment="비교과(프로그램) 인정 환산 점수 합계 최소 요구치",
     )
 
     # 인턴십 환산 점수 누적 최소 요구치
-    total_internship_required: Mapped[float] = mapped_column(
+    total_internship_required: Mapped[int] = mapped_column(
         Float,
         nullable=False,
         default=0.0,
