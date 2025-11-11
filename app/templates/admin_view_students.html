@@ -1,56 +1,518 @@
 {% extends "admin_base.html" %}
-{% block title %}학생 목록 조회{% endblock %}
+{% block title %}학생 조회{% endblock %}
 
 {% block content %}
 <section class="section-card">
-  <header class="section-card__header">
-    <h1 class="section-card__title">학생 목록</h1>
-    <p class="section-card__desc">
-      등록된 학생 정보입니다. 상세보기 / 수정 / 삭제 기능은 추후 제공 예정입니다.
-    </p>
+  <header class="section-card__header" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+    <h1 class="section-card__title" style="margin-right:auto;">학생 조회</h1>
+
+    <div class="toolbar" style="display:flex;align-items:center;gap:.5rem;">
+      <button id="btn-refresh" class="btn">새로고침</button>
+      <label for="page-size" class="text-dim">페이지 당</label>
+      <select id="page-size" class="field-input" style="width:96px;">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
   </header>
 
-  <div class="section-card__inner scroll-x">
-    <table class="admin-table">
-      <thead>
-        <tr>
-          <th>학번</th>
-          <th>이름</th>
-          <th>과정</th>
-          <th>단과대학</th>
-          <th>전공</th>
-          <th>재학상태</th>
-          <th>지도교수</th>
-          <th>최근수정일</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in students %}
-        <tr>
-          <td>{{ s.student_no }}</td>
-          <td>{{ s.name }}</td>
-          <td>{{ s.degree }}</td>
-          <td>{{ s.college }}</td>
-          <td>{{ s.major }}</td>
-          <td>{{ s.academic_status }}</td>
-          <td>{{ s.advisor_name }}</td>
-          <td>{{ (s.updated_at or s.created_at).strftime("%Y-%m-%d") if s.updated_at else "" }}</td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="8" style="text-align:center; color:#64748b;">
-            등록된 학생이 없습니다.
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <footer class="section-card__footer">
-    <p class="text-dim">
-      ※ 학생 상세 정보(개인정보, 휴학 이력 등) 조회 / 수정 / 삭제 기능은 추후 제공 예정입니다.
-    </p>
-  </footer>
+  <div id="students-table" style="margin-top:.75rem;"></div>
 </section>
+
+<!-- 상세 모달 -->
+<div id="student-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:70;">
+  <div class="modal-panel" style="position:absolute; top:5vh; left:50%; transform:translateX(-50%); width:min(1200px, 96vw); background:#fff; border-radius:14px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <!-- 헤더 -->
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div>
+        <div id="std-title" style="font-size:1.1rem; font-weight:700;">학생</div>
+        <div id="std-subtitle" class="text-dim" style="font-size:.9rem;"></div>
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button id="btn-open-edit" class="btn">수정</button>
+        <button id="btn-close" class="btn">닫기</button>
+      </div>
+    </div>
+
+    <!-- 바디 -->
+    <div class="modal-body" style="padding:12px 16px 16px;">
+      <!-- 개요 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">개요</div>
+        <div id="std-overview" style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;"></div>
+      </div>
+
+      <!-- 서브탭 -->
+      <div class="subtabs" style="display:flex; gap:.5rem; margin:8px 0 10px;">
+        <button data-tab="curricula" class="btn primary outline small">교육과정 이수현황</button>
+        <button data-tab="courses"   class="btn outline small">교과목 수강</button>
+        <button data-tab="programs"  class="btn outline small">비교과 참석</button>
+        <button data-tab="leaves"    class="btn outline small">학적/휴학 이력</button>
+      </div>
+
+      <!-- 탭 패널 -->
+      <div id="tab-curricula" class="tab-panel">
+        <div id="tbl-curricula"></div>
+      </div>
+      <div id="tab-courses" class="tab-panel" style="display:none;">
+        <div id="tbl-courses"></div>
+      </div>
+      <div id="tab-programs" class="tab-panel" style="display:none;">
+        <div id="tbl-programs"></div>
+      </div>
+      <div id="tab-leaves" class="tab-panel" style="display:none;">
+        <div id="tbl-leaves"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabulator CDN -->
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ========= 요소 =========
+  const PAGE_SIZE_SELECT = document.getElementById('page-size');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+
+  const MODAL = document.getElementById('student-modal');
+  const BTN_CLOSE = document.getElementById('btn-close');
+  const BTN_EDIT = document.getElementById('btn-open-edit');
+  const TITLE = document.getElementById('std-title');
+  const SUBTITLE = document.getElementById('std-subtitle');
+  const OV = document.getElementById('std-overview');
+
+  // 탭
+  const subtabs = Array.from(document.querySelectorAll('.subtabs .btn'));
+  const tabPanels = {
+    curricula: document.getElementById('tab-curricula'),
+    courses: document.getElementById('tab-courses'),
+    programs: document.getElementById('tab-programs'),
+    leaves: document.getElementById('tab-leaves'),
+  };
+
+  // 상태
+  let currentStudent = { id: null, student_no: null };
+
+  // ========= 유틸 =========
+  const fmt = (v)=> (v===null||v===undefined||v==='')?'-':String(v);
+
+  async function fetchJSON(url, opts={}){
+    const r = await fetch(url, opts);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    try{ return await r.json(); }catch{ return null; }
+  }
+  async function tryEndpoints(endpoints){
+    for (const ep of endpoints){
+      try{
+        const j = await fetchJSON(ep.url, ep.opts||{});
+        const data = Array.isArray(j?.data) ? j.data : (Array.isArray(j)? j : (j?.data || j));
+        if (data && ((Array.isArray(data) && data.length) || (!Array.isArray(data)))) return data;
+      }catch(e){ /* next */ }
+    }
+    return [];
+  }
+
+  // ========= 학생 목록 (GET & 응답 정규화) =========
+  const studentsTable = new Tabulator("#students-table", {
+    height: "70vh",
+    layout: "fitDataStretch",
+    placeholder: "데이터가 없습니다.",
+    ajaxURL: "/api/tabulator/students",   // 기존 엔드포인트 유지
+    ajaxConfig: "GET",                     // ← 422 방지: GET로 전환
+    pagination: true,
+    paginationMode: "remote",
+    paginationSize: Number(PAGE_SIZE_SELECT.value || 20),
+    ajaxResponse: (url, params, resp)=>{
+      // 어떤 형태로 오든 {last_page, data} 로 정규화
+      const rows = resp?.data ?? resp?.rows ?? (Array.isArray(resp)? resp : []);
+      const last = resp?.last_page ?? resp?.total_pages ?? resp?.lastPage ?? 1;
+      return { last_page: last, data: rows };
+    },
+    paginationDataSent:   { "page": "page", "size": "size" },
+    paginationDataReceived:{ "last_page": "last_page", "data": "data" },
+    columns: [
+      {title:"액션", field:"id", width:110, hozAlign:"center", headerSort:false, formatter:(cell)=>{
+        const row = cell.getRow().getData();
+        return `<button class="btn small" data-open="${row.id}" data-no="${row.student_no||''}">상세</button>`;
+      }},
+      {title:"학번", field:"student_no", width:130, headerFilter:"input"},
+      {title:"이름", field:"name", width:120, headerFilter:"input"},
+      {title:"학위", field:"degree", width:90, headerFilter:"input"},
+      {title:"단과대", field:"college", width:120, headerFilter:"input"},
+      {title:"학과", field:"department", width:140, headerFilter:"input"},
+      {title:"전공", field:"major", minWidth:140, headerFilter:"input"},
+      {title:"입학년도", field:"admission_year", hozAlign:"center", width:100, headerFilter:"number"},
+      {title:"학기", field:"admission_term", hozAlign:"center", width:80, headerFilter:"input"},
+      {title:"학적상태", field:"academic_status", width:110, headerFilter:"input"},
+      {title:"휴학", field:"leave_of_absence", width:70, hozAlign:"center"},
+      {title:"SNU 메일", field:"email_snu", minWidth:180},
+      {title:"기타 메일", field:"email_other", minWidth:180},
+      {title:"연구자ID", field:"researcher_id", width:120},
+      {title:"지도교수", field:"advisor_name", width:120},
+      {title:"공동지도", field:"supervisor_name", width:120},
+      {title:"수정일", field:"updated_at", hozAlign:"center", width:120},
+    ],
+    rowFormatter(row){
+      const el = row.getElement();
+      el.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-open]');
+        if (btn){
+          const sid = Number(btn.getAttribute('data-open'));
+          const sno = btn.getAttribute('data-no') || '';
+          openStudentDetail(sid, sno);
+        }
+      });
+    },
+  });
+
+  PAGE_SIZE_SELECT.addEventListener("change", () => {
+    const size = parseInt(PAGE_SIZE_SELECT.value);
+    studentsTable.setPageSize(size);
+    studentsTable.setPage(1);
+  });
+  BTN_REFRESH.addEventListener("click", () => studentsTable.replaceData());
+
+  // ========= 상세 개요 =========
+  async function loadStudentOverview(studentId){
+    OV.innerHTML = `<div class="text-dim">로딩 중…</div>`;
+    const data = await tryEndpoints([
+      {url:`/api/student/${encodeURIComponent(studentId)}/overview`, opts:{method:"GET"}},
+      {url:`/api/tabulator/student/${encodeURIComponent(studentId)}/overview`, opts:{method:"GET"}},
+      {url:`/api/student/${encodeURIComponent(studentId)}`, opts:{method:"GET"}},
+    ]);
+    const d = Array.isArray(data) ? (data[0]||{}) : data;
+
+    TITLE.textContent = d.name || d.student?.name || '(무명)';
+    SUBTITLE.textContent = [
+      d.student_no || d.student?.student_no || '',
+      d.degree || d.student?.degree || '',
+      d.department || d.student?.department || ''
+    ].filter(Boolean).join(' • ');
+
+    const item = (label, val) => `<div>${label}: <b>${fmt(val)}</b></div>`;
+    OV.innerHTML = [
+      item('학번', d.student_no ?? d.student?.student_no),
+      item('학위', d.degree ?? d.student?.degree),
+      item('단과대', d.college ?? d.student?.college),
+      item('학과', d.department ?? d.student?.department),
+      item('전공', d.major ?? d.student?.major),
+      item('입학', [d.admission_year ?? d.student?.admission_year, d.admission_term ?? d.student?.admission_term].filter(Boolean).join(' ')),
+      item('학적상태', d.academic_status ?? d.student?.academic_status),
+      item('지도교수', d.advisor_name ?? d.student?.advisor_name),
+      item('공동지도', d.supervisor_name ?? d.student?.supervisor_name),
+      item('SNU 메일', d.email_snu ?? d.student?.email_snu),
+      item('기타 메일', d.email_other ?? d.student?.email_other),
+      `<div style="grid-column:1/-1;">수정일: <b>${fmt(d.updated_at ?? d.student?.updated_at)}</b></div>`
+    ].join('');
+  }
+
+  // ========= 상세 모달 =========
+  async function openStudentDetail(studentId, studentNo){
+    currentStudent.id = studentId;
+    currentStudent.student_no = studentNo;
+    MODAL.style.display = 'block';
+    setActiveTab('curricula');
+
+    await loadStudentOverview(studentId);
+    ensureCurriculaTable(studentId, true);
+    ensureCoursesTable(studentId, true);
+    ensureProgramsTable(studentId, true);
+    ensureLeavesTable(studentId, true);
+  }
+  BTN_CLOSE.addEventListener('click', () => { MODAL.style.display = 'none'; });
+  BTN_EDIT.addEventListener('click', () => {
+    if (!currentStudent.id) return;
+    location.href = `/admin/register/student?edit=${encodeURIComponent(currentStudent.id)}`;
+  });
+
+  // ========= 탭 전환 =========
+  function setActiveTab(name){
+    subtabs.forEach(b => {
+      const key = b.getAttribute('data-tab');
+      if (key === name){ b.classList.remove('outline'); b.classList.add('primary'); }
+      else { b.classList.add('outline'); b.classList.remove('primary'); }
+    });
+    Object.entries(tabPanels).forEach(([k, el]) => el.style.display = (k===name ? '' : 'none'));
+  }
+  subtabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-tab');
+      setActiveTab(key);
+      if (!currentStudent.id) return;
+      if (key === 'curricula') ensureCurriculaTable(currentStudent.id, false);
+      else if (key === 'courses') ensureCoursesTable(currentStudent.id, false);
+      else if (key === 'programs') ensureProgramsTable(currentStudent.id, false);
+      else if (key === 'leaves') ensureLeavesTable(currentStudent.id, false);
+    });
+  });
+
+  // ========= 캐시 =========
+  const REQUIRED_MAP = new Map();    // curId -> Set(course_code)
+  const REQ_NEED_MAP = new Map();    // curId -> requirements row (need fields)
+  const STUDENT_COURSES = new Map(); // sid -> Set(course_code)
+
+  async function getRequiredCourseSet(curId){
+    if (REQUIRED_MAP.has(curId)) return REQUIRED_MAP.get(curId);
+    const j = await fetchJSON(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/courses`, {method:"POST"});
+    const data = Array.isArray(j?.data) ? j.data : (Array.isArray(j)? j : []);
+    const set = new Set(
+      data.filter(x => String(x.required_flag||'').includes('필수'))
+          .map(x => String(x.course_code||'').trim())
+          .filter(Boolean)
+    );
+    REQUIRED_MAP.set(curId, set);
+    return set;
+  }
+  async function getStudentCourseSet(studentId){
+    if (STUDENT_COURSES.has(studentId)) return STUDENT_COURSES.get(studentId);
+    const j = await fetchJSON(`/api/student/${encodeURIComponent(studentId)}/courses`, {method:"GET"});
+    const list = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : []);
+    const set = new Set(list.map(x => String(x.course_code||'').trim()).filter(Boolean));
+    STUDENT_COURSES.set(studentId, set);
+    return set;
+  }
+  async function getRequirementNeed(curId){
+    if (REQ_NEED_MAP.has(curId)) return REQ_NEED_MAP.get(curId);
+    const j = await fetchJSON(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/requirements`, {method:"POST"});
+    const arr = Array.isArray(j?.data) ? j.data : (Array.isArray(j)? j : []);
+    // 첫 행만 사용 (해당 커리큘럼의 대표 requirement)
+    const row = arr[0] || {};
+    REQ_NEED_MAP.set(curId, row);
+    return row;
+  }
+
+  // ========= 탭: 교육과정 이수현황 =========
+  function ensureCurriculaTable(studentId, forceReload){
+    // head
+    const head = [
+      { title:"유형", field:"program_type", headerFilter:"input", width:110 },
+      { title:"교육과정명", field:"curriculum_name", headerFilter:"input",
+        mutator:(v,d)=> v ?? d.course_name ?? d.curriculum?.course_name ?? "-" },
+      { title:"상태", field:"status", hozAlign:"center", width:100 },
+
+      // 등록/종료: 커리큘럼 조회에 있는 키들도 폴백으로 다 받음
+      { title:"등록 연도", field:"joined_year", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.join_year ?? d.joined_year ?? d.joined?.year ?? "-" },
+      { title:"등록 학기", field:"joined_term", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.join_term ?? d.joined_term ?? d.joined?.term ?? "-" },
+
+      { title:"종료 연도", field:"completed_year", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.complete_year ?? d.completed_year ?? d.completed?.year ?? "-" },
+      { title:"종료 학기", field:"completed_term", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.complete_term ?? d.completed_term ?? d.completed?.term ?? "-" },
+
+      { title:"요건코드", field:"requirement_code", headerFilter:"input", width:140,
+        mutator:(v,d)=> v ?? d.requirement?.requirement_code ?? d.req_code ?? "-" },
+    ];
+
+    // 합계/최소 페어
+    const gotNeed = (gotKey, needKey, title, width=130) => ({
+      title, field: gotKey, width, hozAlign:"right",
+      formatter:(cell)=>{
+        const row = cell.getRow().getData();
+        const got  = Number(row[gotKey] ?? 0);
+        const need = Number(row[needKey] ?? 0);
+        const g = Number.isFinite(got) ? got : 0;
+        const n = Number.isFinite(need) ? need : 0;
+        return `${g} / ${n}`;
+      }
+    });
+
+    const totals = [
+      gotNeed("course_total_credit", "required_credit", "교과학점"),
+      gotNeed("extrac_converted_total", "total_converted_required", "비교과 환산", 140),
+    ];
+
+    // 비교과 최소(9종)
+    const CAT = [
+      "min_ai_med_talks","min_exchange_forum","min_seminar",
+      "min_hospital_visit","min_company_visit","min_academic_conf",
+      "min_expo","min_competition","min_etc"
+    ];
+    const LABEL = {
+      min_ai_med_talks:"Talks", min_exchange_forum:"성과교류회", min_seminar:"세미나",
+      min_hospital_visit:"병원", min_company_visit:"회사", min_academic_conf:"학회",
+      min_expo:"박람회", min_competition:"경진대회", min_etc:"기타",
+    };
+    const cats = CAT.map(k => ({
+      title: LABEL[k], field: `${k}_got`, width:110, hozAlign:"right",
+      formatter:(cell)=>{
+        const r = cell.getRow().getData();
+        const got  = Number(r[`${k}_got`]  ?? r[k] ?? 0);
+        const need = Number(r[`${k}_need`] ?? r[k] ?? 0);
+        return `${Number.isFinite(got)?got:0} / ${Number.isFinite(need)?need:0}`;
+      }
+    }));
+
+    const passes = [
+      { title:"학점충족", field:"pass_credit",    formatter:"tickCross", hozAlign:"center", width:90 },
+      { title:"환산충족", field:"pass_converted", formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"최소충족", field:"pass_minimum",   formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"필수교과", field:"required_core_done", formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"이수조건 충족", field:"__meets__", width:120, hozAlign:"center",
+        mutator:(v,d)=> Boolean(d.meets_requirement ?? d.pass_all ?? d.passed ?? d.meets),
+        formatter:"tickCross"
+      },
+    ];
+
+    if (!window.curriculaTable){
+      window.curriculaTable = new Tabulator("#tbl-curricula", {
+        height: 460,
+        layout: "fitDataStretch",
+        ajaxURL: `/api/student/${encodeURIComponent(studentId)}/curricula`,
+        ajaxConfig: "GET",
+        columns: [...head, ...totals, ...cats, ...passes],
+        ajaxResponse: async (url, params, resp) => {
+          // 배열/래핑 형태 정규화
+          const data = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+          // 1) 필요치(need) 보강: 커리큘럼 requirements 호출해 채워넣기
+          const uniqueCur = [...new Set(data.map(r => r.curriculum_id ?? r.id).filter(Boolean))];
+          await Promise.all(uniqueCur.map(curId => getRequirementNeed(curId)));
+          for (const row of data){
+            const curId = row.curriculum_id ?? row.id;
+            if (curId && !row.required_credit){
+              const need = await getRequirementNeed(curId);
+              row.required_credit = need.required_credit ?? need.credit ?? 0;
+              row.total_converted_required = need.total_converted_required ?? need.extrac_converted ?? 0;
+              // 카테고리 need
+              for (const k of ["min_ai_med_talks","min_exchange_forum","min_seminar","min_hospital_visit","min_company_visit","min_academic_conf","min_expo","min_competition","min_etc"]){
+                const v = Number(need[k] ?? 0);
+                if (Number.isFinite(v)) row[`${k}_need`] = v;
+              }
+            }
+          }
+          // 2) 필수교과 이수 여부: 학생 수강셋 vs 커리큘럼 필수셋
+          try{
+            const takenSet = await getStudentCourseSet(studentId);
+            for (const row of data){
+              const curId = row.curriculum_id ?? row.id;
+              if (!curId){ row.required_core_done = true; continue; }
+              const reqSet = await getRequiredCourseSet(curId);
+              row.required_core_done = [...reqSet].every(code => takenSet.has(code));
+            }
+          }catch(e){ console.warn("required_core_done calc err", e); }
+          return data;
+        },
+      });
+    } else if (forceReload){
+      curriculaTable.setColumns([...head, ...totals, ...cats, ...passes]);
+      curriculaTable.setData(`/api/student/${encodeURIComponent(studentId)}/curricula`);
+    }
+  }
+
+  // ========= 탭: 교과목 수강 =========
+  function ensureCoursesTable(studentId, forceReload){
+    const cols = [
+      { title:"코드", field:"course_code", headerFilter:"input", width:120 },
+      { title:"과목명", field:"course_name", headerFilter:"input",
+        mutator:(v,d)=> v ?? d.course_name_ko ?? d.course?.course_name_ko ?? d.name ?? "-" },
+      { title:"학점", field:"credit", hozAlign:"right", width:90,
+        mutator:(v,d)=> Number.isFinite(+v) ? +v : (Number.isFinite(+d.course?.credit) ? +d.course.credit : null) },
+    ];
+    if (!window.coursesTable){
+      window.coursesTable = new Tabulator("#tbl-courses", {
+        height: 380,
+        layout: "fitDataStretch",
+        ajaxURL: `/api/student/${encodeURIComponent(studentId)}/courses`,
+        ajaxConfig: "GET",
+        columns: cols,
+      });
+    } else if (forceReload){
+      coursesTable.setColumns(cols);
+      coursesTable.setData(`/api/student/${encodeURIComponent(studentId)}/courses`);
+    }
+  }
+
+  // ========= 탭: 비교과 참석 =========
+  function ensureProgramsTable(studentId, forceReload){
+    const dash = (cell) => {
+      const v = cell.getValue();
+      return (v === null || v === undefined || v === "") ? "-" : v;
+    };
+
+    const padMonth = (cell) => {
+      const v = cell.getValue();
+      return (v === null || v === undefined) ? "-" : String(v).padStart(2, "0");
+    };
+
+    const cols = [
+      { title:"유형",       field:"program_type",    headerFilter:"input", width:160, formatter:dash },
+      { title:"프로그램명", field:"program_name",    headerFilter:"input",             formatter:dash },
+      { title:"세부명",     field:"sub_program_name",                                formatter:dash },
+      { title:"주관/주최",  field:"organizer",        width:200,                      formatter:dash },
+      { title:"개최 연도",  field:"open_year",        width:90,  hozAlign:"center", sorter:"number", formatter:dash },
+      { title:"개최 월",    field:"open_month",       width:80,  hozAlign:"center", sorter:"number", formatter:padMonth },
+      // 참고: 필요하면 문자열 "open(YYYY/MM)" 컬럼도 추가 가능
+      // { title:"개최(표기)", field:"open", width:100, hozAlign:"center", formatter:dash },
+    ];
+
+    const url = `/api/student/${encodeURIComponent(studentId)}/programs`;
+
+    if (!window.programsTable){
+      window.programsTable = new Tabulator("#tbl-programs", {
+        height: 380,
+        layout: "fitDataStretch",
+        ajaxURL: url,
+        ajaxConfig: "GET",
+        columns: cols,
+      });
+    } else if (forceReload){
+      programsTable.setColumns(cols);
+      programsTable.replaceData(url);
+    }
+  }
+
+  // ========= 탭: 학적/휴학 이력 =========
+  function ensureLeavesTable(studentId, forceReload){
+    const cols = [
+      { title:"구분", field:"type", width:110, headerFilter:"input",
+        mutator:(v,d)=> v ?? d.leave_type ?? d.record_type ?? d.status_type ?? "-" },
+      { title:"시작 연도", field:"start_year", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.start?.year ?? d.start_year ?? d.from_year ?? "-" },
+      { title:"시작 학기", field:"start_term", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.start?.term ?? d.start_term ?? d.from_term ?? "-" },
+      { title:"종료 연도", field:"end_year", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.end?.year ?? d.end_year ?? d.to_year ?? "-" },
+      { title:"종료 학기", field:"end_term", width:90, hozAlign:"center",
+        mutator:(v,d)=> v ?? d.end?.term ?? d.end_term ?? d.to_term ?? "-" },
+      { title:"수정일", field:"updated_at", width:140, hozAlign:"center" },
+    ];
+
+    async function leavesLoader(){
+      // 가능한 엔드포인트들을 순차 시도 (백엔드 변경 없이)
+      const data = await tryEndpoints([
+        {url:`/api/student/${encodeURIComponent(studentId)}/leaves`, opts:{method:"GET"}},
+        {url:`/api/student/${encodeURIComponent(studentId)}/academic-history`, opts:{method:"GET"}},
+        {url:`/api/tabulator/student/${encodeURIComponent(studentId)}/leaves`, opts:{method:"GET"}},
+      ]);
+      return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+    }
+
+    if (!window.leavesTable){
+      window.leavesTable = new Tabulator("#tbl-leaves", {
+        height: 360,
+        layout: "fitDataStretch",
+        ajaxURL: "/__placeholder__", // 실제 로드는 아래 setData로
+        columns: cols,
+      });
+      leavesTable.setDataFromLocal = async ()=>{
+        const arr = await leavesLoader();
+        leavesTable.setData(arr);
+      };
+      leavesTable.setDataFromLocal();
+    } else {
+      if (forceReload){
+        leavesTable.setColumns(cols);
+      }
+      leavesTable.setDataFromLocal && leavesTable.setDataFromLocal();
+    }
+  }
+
+});
+</script>
 {% endblock %}

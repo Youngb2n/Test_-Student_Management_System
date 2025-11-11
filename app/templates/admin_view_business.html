@@ -1,62 +1,194 @@
 {% extends "admin_base.html" %}
-{% block title %}주관사업 조회{% endblock %}
+{% block title %}사업단주관사업 조회{% endblock %}
 
 {% block content %}
 <section class="section-card">
   <header class="section-card__header">
-    <h1 class="section-card__title">사업단 주관사업 목록</h1>
-    <p class="section-card__desc">
-      등록된 사업(프로젝트) 현황입니다.
-    </p>
+    <h1 class="section-card__title">사업단주관사업 조회</h1>
+    <p class="section-card__desc">행의 “상세” 버튼으로 개요/연결 교육과정을 확인하고, “수정”으로 편집 페이지로 이동합니다.</p>
   </header>
 
-  <div class="section-card__inner scroll-x">
-    <table class="admin-table">
-      <thead>
-        <tr>
-          <th>프로젝트명</th>
-          <th>지원기관</th>
-          <th>전담/참여기관</th>
-          <th>과제명</th>
-          <th>기간</th>
-          <th>수혜목표</th>
-          <th>성과목표</th>
-          <th>진로연계목표</th>
-          <th>최근수정일</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in initiatives %}
-        <tr>
-          <td>{{ b.project_name }}</td>
-          <td>{{ b.support_agency or "-" }}</td>
-          <td>{{ b.specialized_institute or "-" }}</td>
-          <td>{{ b.research_task_name or "-" }}</td>
-          <td>
-            {{ b.start_date.strftime("%Y-%m-%d") if b.start_date else "-" }}
-            ~
-            {{ b.end_date.strftime("%Y-%m-%d") if b.end_date else "-" }}
-          </td>
-          <td>{{ b.beneficiary_target if b.beneficiary_target is not none else "-" }}</td>
-          <td>{{ b.output_target if b.output_target is not none else "-" }}</td>
-          <td>{{ b.career_linked_target if b.career_linked_target is not none else "-" }}</td>
-          <td>{{ (b.updated_at or b.created_at).strftime("%Y-%m-%d") if b.updated_at else "" }}</td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="9" style="text-align:center; color:#64748b;">
-            등록된 사업이 없습니다.
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="toolbar" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+    <button id="btn-refresh" class="btn">새로고침</button>
+    <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+      <label class="text-dim" for="page-size">페이지 당</label>
+      <select id="page-size" class="field-input" style="width:100px;">
+        <option>10</option><option selected>20</option><option>50</option><option>100</option>
+      </select>
+    </div>
   </div>
 
-  <footer class="section-card__footer">
-    <p class="text-dim">
-      ※ 수정 / KPI 추적 Dashboard / 참여자 관리 기능은 추후 제공 예정입니다.
-    </p>
-  </footer>
+  <div id="business-table"></div>
 </section>
+
+<!-- 상세 모달 -->
+<div id="biz-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60;">
+  <div class="modal-panel" style="position:absolute; top:6vh; left:50%; transform:translateX(-50%); width:min(1000px, 92vw); background:#fff; border-radius:14px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div>
+        <div id="biz-title" style="font-size:1.1rem; font-weight:700;">사업명</div>
+        <div id="biz-subtitle" class="text-dim" style="font-size:.9rem;"></div>
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button id="btn-close" class="btn">닫기</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="padding:12px 16px 16px;">
+      <!-- 개요 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">개요</div>
+        <div id="biz-overview" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;">
+          <!-- JS 채움 -->
+        </div>
+      </div>
+
+      <!-- 연결된 교육과정 목록 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">연결된 교육과정</div>
+        <div id="curricula-table"></div>
+        <div class="text-dim" style="margin-top:6px;">※ 조회 전용입니다. 편집은 교육과정 관리에서 수행하세요.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tabulator CDN (로컬 정적 파일 불필요) #}
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css">
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const PAGE_SIZE_SELECT = document.getElementById('page-size');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+
+  // 모달
+  const MODAL = document.getElementById('biz-modal');
+  const BTN_CLOSE = document.getElementById('btn-close');
+  const TITLE = document.getElementById('biz-title');
+  const SUBTITLE = document.getElementById('biz-subtitle');
+  const OV = document.getElementById('biz-overview');
+
+  let currentBizId = null;
+
+  // 액션 버튼 렌더러
+  function actionFormatter(cell){
+    const row = cell.getRow().getData();
+    const id = row.id;
+    return `
+      <div class="flex gap-2">
+        <button class="btn small" data-biz-detail="${id}">상세</button>
+        <button class="btn small" data-biz-edit="${id}">수정</button>
+      </div>
+    `;
+  }
+
+  // 메인 목록 테이블 (백엔드 /api/tabulator/business 반환 키에 맞춰 필드명 교정)
+  const bizTable = new Tabulator("#business-table", {
+    height: 560,
+    layout: "fitDataStretch",
+    pagination: true,
+    paginationMode: "remote",
+    paginationSize: Number(PAGE_SIZE_SELECT.value || 20),
+    ajaxURL: "/api/tabulator/business",
+    ajaxConfig: "POST",
+    ajaxContentType: "form",
+    columns: [
+      { title:"액션", field:"id", width:140, hozAlign:"center", formatter:actionFormatter, headerSort:false },
+      { title:"사업명", field:"project_name", headerFilter:"input" },
+      { title:"지원부처", field:"support_agency", headerFilter:"input" },
+      { title:"전문/주관기관", field:"specialized_institute", headerFilter:"input" },
+      { title:"연구과제명", field:"research_task_name", headerFilter:"input" },
+      { title:"기간", field:"period", headerFilter:"input" },
+      { title:"상태", field:"status", headerFilter:"input", hozAlign:"center" },
+      { title:"수정일", field:"updated_at", headerFilter:"input" },
+    ],
+    rowFormatter: function(row){
+      // 액션 버튼 이벤트 위임
+      const el = row.getElement();
+      el.addEventListener('click', (e) => {
+        const detailBtn = e.target.closest('[data-biz-detail]');
+        const editBtn   = e.target.closest('[data-biz-edit]');
+        if (detailBtn){
+          const id = Number(detailBtn.getAttribute('data-biz-detail'));
+          openDetail(id);
+        } else if (editBtn){
+          const id = editBtn.getAttribute('data-biz-edit');
+          location.href = `/admin/register/business?edit=${encodeURIComponent(id)}`;
+        }
+      });
+    },
+    paginationCounter: "rows",
+  });
+
+  PAGE_SIZE_SELECT.addEventListener('change', () => {
+    bizTable.setPageSize(Number(PAGE_SIZE_SELECT.value || 20));
+    bizTable.setPage(1);
+  });
+  BTN_REFRESH.addEventListener('click', () => bizTable.replaceData());
+
+  // 모달 내부: 연결 교육과정 테이블
+  const curriculaTable = new Tabulator("#curricula-table", {
+    height: 300,
+    layout: "fitDataStretch",
+    placeholder: "연결된 교육과정이 없습니다.",
+    columns: [
+      { title:"프로그램명", field:"program_name", headerFilter:"input" },
+      { title:"단과대 범위", field:"college_scope", headerFilter:"input" },
+      { title:"학위과정 범위", field:"degree_scope", headerFilter:"input" },
+      { title:"생성일", field:"created_at", headerFilter:"input" },
+    ],
+  });
+
+  // 상세 열기
+  async function openDetail(id){
+    currentBizId = id;
+    MODAL.style.display = 'block';
+
+    // 1) 개요
+    try{
+      const res = await fetch(`/api/business/${id}/overview`);
+      const j = await res.json();
+      if (!j.ok) throw new Error('overview !ok');
+      const d = j.data;
+
+      TITLE.textContent = d.project_name || '(무제)';
+      SUBTITLE.textContent = [
+        d.support_agency || '-',
+        d.specialized_institute || '-'
+      ].join(' • ');
+
+      OV.innerHTML = `
+        <div>사업명: <b>${d.project_name || '-'}</b></div>
+        <div>지원부처: <b>${d.support_agency || '-'}</b></div>
+        <div>전문/주관기관: <b>${d.specialized_institute || '-'}</b></div>
+        <div>연구과제명: <b>${d.research_task_name || '-'}</b></div>
+        <div>기간: <b>${(d.start_date || '-')} ~ ${(d.end_date || '-')}</b></div>
+        <div>수혜 목표: <b>${d.beneficiary_target ?? '-'}</b></div>
+        <div>배출 목표: <b>${d.output_target ?? '-'}</b></div>
+        <div>진로연계 취창업 목표: <b>${d.career_linked_target ?? '-'}</b></div>
+        <div style="grid-column:1/-1;">수정일: <b>${d.updated_at || '-'}</b></div>
+      `;
+    }catch(err){
+      console.error('[business] overview error', err);
+      OV.innerHTML = `<div style="color:#b91c1c;">상세 로드 중 오류가 발생했습니다.</div>`;
+    }
+
+    // 2) 연결된 교육과정
+    try{
+      const res2 = await fetch(`/api/business/${id}/curricula`);
+      if (!res2.ok) throw new Error('curricula http ' + res2.status);
+      const list = await res2.json();
+      curriculaTable.setData(Array.isArray(list) ? list : []);
+    }catch(err){
+      console.error('[business] curricula error', err);
+      curriculaTable.clearData();
+    }
+  }
+
+  BTN_CLOSE.addEventListener('click', () => {
+    MODAL.style.display = 'none';
+  });
+});
+</script>
 {% endblock %}

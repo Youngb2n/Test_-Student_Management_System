@@ -211,6 +211,14 @@ class Student(Base):
         back_populates="student",
     )   
 
+    status: Mapped[str] = mapped_column(
+            String(16),
+            default="active",
+            server_default="active",
+            nullable=False,
+            doc="soft delete 용 상태값: active / deleted",
+        )
+
     # 타임스탬프
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

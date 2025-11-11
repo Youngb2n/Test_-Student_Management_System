@@ -12,17 +12,16 @@ function closestMatch(el, selector) {
    ============================ */
 
 function closeAllDropdowns() {
-  document.querySelectorAll(".custom-dropdown-menu.active").forEach(m => {
-    m.classList.remove("active");
+  document.querySelectorAll(".custom-dropdown-menu.is-open").forEach(m => {
+  m.classList.remove("is-open");
   });
 }
 
 function openDropdown(menuEl, triggerBtn) {
   closeAllDropdowns();
   if (!menuEl) return;
-
-  menuEl.classList.add("active");
-
+  menuEl.style.removeProperty('display');
+  menuEl.classList.add("is-open");
   const labelEl = triggerBtn.querySelector(".custom-dropdown-label");
   const currentText = (labelEl?.textContent || "").trim();
 
@@ -43,43 +42,28 @@ function openDropdown(menuEl, triggerBtn) {
   }
 }
 
-function selectOptionAndClose(optEl) {
-  const menu = optEl.closest(".custom-dropdown-menu");
+// 기존 함수 교체
+// 드롭다운 옵션 클릭 시 값 반영 + 닫기 (래퍼 기준 탐색)
+export function selectOptionAndClose(optionEl) {
+  if (!optionEl) return;
+  const menu = optionEl.closest('.custom-dropdown-menu');
   if (!menu) return;
-  const wrapper = menu.closest(".custom-dropdown-wrapper");
-  if (!wrapper) return;
 
-  const value = optEl.getAttribute("data-value");
-  const labelEl = wrapper.querySelector(".custom-dropdown-label");
-  const hiddenInput = wrapper.querySelector(".custom-dropdown-hidden");
+  const wrapper = menu.closest('.custom-dropdown-wrapper');
+  if (!wrapper) { menu.classList.remove('is-open'); return; }
+  const hidden  = wrapper.querySelector('input[type="hidden"]');
+  const trigger = wrapper.querySelector('.custom-dropdown-trigger');
+  const labelEl = trigger ? trigger.querySelector('.custom-dropdown-label') : null;
 
-  // 라벨 업데이트
-  labelEl.textContent = value ? value : "미입력";
+  const val  = optionEl.getAttribute('data-value') ?? '';
+  const text = (optionEl.textContent || '').trim();
 
-  // 🔹 name 제어 로직 (핵심 부분)
-  if (value === "" || value == null) {
-    // 미입력 → 서버로 전송하지 않도록 name 제거
-    if (!hiddenInput.dataset.originalName) {
-      hiddenInput.dataset.originalName = hiddenInput.getAttribute("name");
-    }
-    hiddenInput.removeAttribute("name");
-    hiddenInput.value = "";
-  } else {
-    // 값이 있으면 name 복구 + 숫자 변환
-    if (!hiddenInput.getAttribute("name") && hiddenInput.dataset.originalName) {
-      hiddenInput.setAttribute("name", hiddenInput.dataset.originalName);
-    }
-    hiddenInput.value = parseInt(value, 10);
-  }
+  if (hidden)  hidden.value = val;
+  if (labelEl) labelEl.textContent = text;
 
-  // 선택된 옵션 강조 표시
-  menu.querySelectorAll(".custom-dropdown-option.highlight").forEach(o => {
-    o.classList.remove("highlight");
-  });
-  optEl.classList.add("highlight");
-
-  menu.classList.remove("active");
+   menu.classList.remove('is-open');
 }
+
 
 export function initCustomDropdowns(scope) {
   const root = scope || document;
@@ -90,13 +74,14 @@ export function initCustomDropdowns(scope) {
 
     btn.addEventListener("click", ev => {
       ev.stopPropagation();
-      const targetId = btn.getAttribute("data-target");
-      if (!targetId) return;
-      const menu = document.getElementById(targetId);
+      ev.stopImmediatePropagation();
+      ev.preventDefault();
+      const wrapper = btn.closest('.custom-dropdown-wrapper');
+      const menu = wrapper ? wrapper.querySelector('.custom-dropdown-menu') : null;
       if (!menu) return;
-
-      if (menu.classList.contains("active")) menu.classList.remove("active");
+      if (menu.classList.contains('is-open')) menu.classList.remove('is-open');
       else openDropdown(menu, btn);
+
     });
   });
 
@@ -108,14 +93,18 @@ export function initCustomDropdowns(scope) {
     });
   });
 
-  document.addEventListener("click", () => {
-    closeAllDropdowns();
-  });
+  if (!document.__dropdownGlobalBound) {
+    document.__dropdownGlobalBound = true;
+    document.addEventListener("click", (e) => {
+      if (e.target && e.target.closest(".custom-dropdown-wrapper")) return;
+      closeAllDropdowns();
+    }, { capture: true });
+  }
 }
 
 // 키보드 네비(드롭다운 open 상태에서 ↑↓Enter...)
 document.addEventListener("keydown", e => {
-  const menu = document.querySelector(".custom-dropdown-menu.active");
+  const menu = document.querySelector(".custom-dropdown-menu.is-open");
   if (!menu) return;
   const opts = Array.from(menu.querySelectorAll(".custom-dropdown-option"));
   if (!opts.length) return;
@@ -156,12 +145,15 @@ document.addEventListener("keydown", e => {
 
 // ===== show/hide 블록 유틸 (재직자 전형, 휴학이력 등) =====
 export function syncConditionalBlocks() {
-  const admissionType  = document.getElementById("admission_type")?.value || "";
+  const admissionSel = document.getElementById("admission_type");
+const admissionType = admissionSel?.value || "";
+const admissionText = admissionSel?.options[admissionSel.selectedIndex]?.text || "";
+
   const leaveFlag      = document.getElementById("leave_of_absence")?.value || "N";
 
   // 재직자 전형 블록
   const employedBlock = document.getElementById("employed_block");
-  const isEmployed = admissionType.includes("재직");
+const isEmployed = admissionType.includes("재직") || admissionText.includes("재직");
   if (employedBlock) {
     employedBlock.style.display = isEmployed ? "block" : "none";
 
@@ -284,8 +276,8 @@ export function initCurriculumRequirements() {
   if (!container) return;
 
   const addBtn = document.getElementById("btn_requirement_add");
-  if (addBtn && !addBtn.dataset.bound) {
-    addBtn.dataset.bound = "1";
+  if (addBtn && !addBtn.dataset.progAddBound) {
+    addBtn.dataset.progAddBound = "1";
     addBtn.addEventListener("click", () => {
       const firstCard = container.querySelector(".requirement-card");
       if (!firstCard) return;
@@ -293,7 +285,9 @@ export function initCurriculumRequirements() {
       const clone = firstCard.cloneNode(true);
       clone.querySelectorAll("input").forEach(i => (i.value = ""));
       clone.querySelectorAll("select").forEach(s => (s.selectedIndex = 0));
-      container.insertBefore(clone, addBtn);
+      const anchor = addBtn.closest(".form-actions") || addBtn;
+      container.insertBefore(clone, anchor);
+      // container.insertBefore(clone, addBtn);
     });
   }
 
@@ -477,3 +471,228 @@ if (form) {
   });
 }
 
+export function initNationalityInlineSwap() {
+  const sel = document.getElementById("nationality_select");
+  const inline = document.getElementById("nationality_inline_input");
+  if (!sel || !inline) return;
+  function sync() {
+    if (sel.value === "__OTHER__") {
+      inline.style.display = "block";
+      inline.required = true;
+    } else {
+      inline.style.display = "none";
+      inline.required = false;
+      inline.value = "";
+    }
+  }
+  sel.addEventListener("change", sync);
+  sync();
+}
+
+export function syncEmailDomain() {
+  const sel   = document.getElementById("email_other_domain_select");
+  const other = document.getElementById("email_other_domain_other");
+  if (!sel || !other) return;
+
+  if (sel.value === "__OTHER__") {
+    other.style.display = "inline-block";  // 오른쪽 칸 보이기
+    other.required = true;
+  } else {
+    other.style.display = "none";
+    other.required = false;
+    other.value = "";
+  }
+}
+
+
+// =============================
+//  프로그램 등록 & 이수조건 로딩
+// =============================
+// 프로그램 등록(학생-교육과정 매핑) 초기화
+export function initProgramEnrollment(root, { requirementApi }) {
+  const doc = root || document;
+  const container = doc.getElementById("program_rows_container");
+  if (!container) return;
+
+  async function fetchRequirements(programId) {
+    const url = `${requirementApi}?curriculum_program_id=${encodeURIComponent(programId)}`;
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) throw new Error(`requirements fetch failed: ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data.items) ? data.items : [];
+  }
+
+  function showRequirementField(row, yes) {
+    const field = row.querySelector(".requirement-select")?.closest(".field");
+    const select = row.querySelector(".requirement-select");
+    if (!field || !select) return;
+    if (yes) {
+      field.style.display = "";      // 보이기
+      select.disabled = false;       // 활성화
+    } else {
+      field.style.display = "none";  // 숨기기
+      select.disabled = true;        // 비활성화
+      select.innerHTML = `<option value="">(교육과정을 먼저 선택)</option>`;
+    }
+  }
+
+  async function fillRequirementOptions(row, programId) {
+    const select = row.querySelector(".requirement-select");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">불러오는 중...</option>`;
+    try {
+      const items = await fetchRequirements(programId);
+      if (!items.length) {
+        select.innerHTML = `<option value="">등록된 이수조건이 없습니다</option>`;
+        return;
+      }
+      const opts = ['<option value="">선택</option>']
+        .concat(items.map(it => `<option value="${it.id}">${it.requirement_code || it.id}</option>`));
+      select.innerHTML = opts.join("");
+    } catch (err) {
+      console.error(err);
+      select.innerHTML = `<option value="">불러오기 실패</option>`;
+    }
+  }
+
+  function bindRow(row) {
+    // 초깃값에 따라 이수조건 필드 표시 상태 정리
+    const progSel = row.querySelector('select[name="curriculum_program_id"]');
+    const reqSel  = row.querySelector('select[name="requirement_id"]');
+
+    if (!progSel || !reqSel) return;
+
+    // 기존 바인딩 중복 방지
+    if (progSel.dataset.bound === "1") return;
+    progSel.dataset.bound = "1";
+
+    // 초기 표시 (프로그램이 이미 선택돼 있으면 이수조건 표시/로딩)
+    if (progSel.value) {
+      showRequirementField(row, true);
+      fillRequirementOptions(row, progSel.value);
+    } else {
+      showRequirementField(row, false);
+    }
+
+    // 변경 시 로딩
+    progSel.addEventListener("change", () => {
+      const val = progSel.value;
+      if (!val) {
+        showRequirementField(row, false);
+        return;
+      }
+      showRequirementField(row, true);
+      fillRequirementOptions(row, val);
+    });
+  }
+
+  // 초기 렌더된 행들 바인딩
+  container.querySelectorAll(".program-row").forEach(bindRow);
+
+  // 동적 추가된 행도 바인딩 (이벤트 위임)
+  container.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLSelectElement)) return;
+    if (t.name !== "curriculum_program_id") return;
+    const row = t.closest(".program-row");
+    if (!row) return;
+    // 선택 시 즉시 처리 (이미 위 change 핸들러가 있지만,
+    // 복제/주입 타이밍 케이스를 위해 한번 더 안전망)
+    if (t.value) {
+      showRequirementField(row, true);
+      fillRequirementOptions(row, t.value);
+    } else {
+      showRequirementField(row, false);
+    }
+  });
+
+  // "프로그램 추가" 버튼으로 새 행이 생기면 즉시 바인딩
+  const addBtn = doc.getElementById("btn_program_add");
+  container.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-program-remove");
+    if (!btn) return;
+    const row = btn.closest(".program-row");
+    if (!row) return;
+    // 최소 1개 남기고 삭제
+    if (container.querySelectorAll(".program-row").length > 1) {
+      row.remove();
+    }
+  });
+  if (addBtn && !addBtn.dataset.bound) {
+    addBtn.dataset.bound = "1";
+    addBtn.addEventListener("click", () => {
+      // 기존 첫 행을 템플릿처럼 복제한다는 가정
+      const first = container.querySelector(".program-row");
+      if (!first) return;
+      const clone = first.cloneNode(true);
+
+      // 값 초기화
+      clone.querySelectorAll("select,input").forEach(el => {
+        if (el.name === "curriculum_program_id") el.value = "";
+        if (el.name === "requirement_id") el.value = "";
+        if (el.name === "enroll_start_year") el.value = "";
+        if (el.name === "enroll_start_semester") el.value = "";
+        if (el.name === "enroll_end_year") el.value = "";
+        if (el.name === "enroll_end_semester") el.value = "";
+        if (el.name === "enroll_is_active") el.value = "Y";
+      });
+      
+      // ★★★ ID 재번호: _menu_0 → _menu_{idx}
+      const nextIdx = (() => {
+        let m = -1;
+        container.querySelectorAll(".program-row").forEach(r => {
+          const v = parseInt(r.dataset.index || "-1", 10);
+          if (!Number.isNaN(v)) m = Math.max(m, v);
+        });
+        return m + 1;
+      })();
+
+      // 메뉴 ID와 data-target 동기화
+      const pairs = [
+        ["enroll_start_year_menu_", `enroll_start_year_menu_${nextIdx}`],
+        ["enroll_start_sem_menu_",  `enroll_start_sem_menu_${nextIdx}`],
+        ["enroll_end_year_menu_",   `enroll_end_year_menu_${nextIdx}`],
+        ["enroll_end_sem_menu_",    `enroll_end_sem_menu_${nextIdx}`],
+      ];
+
+      pairs.forEach(([prefix, newid]) => {
+        const menu = clone.querySelector(`[id^="${prefix}"]`);
+        if (menu) menu.id = newid;
+        const btn  = clone.querySelector(`.custom-dropdown-trigger[data-target^="${prefix}"]`);
+        if (btn) btn.setAttribute("data-target", newid);
+      });
+
+      clone.dataset.index = String(nextIdx);
+
+
+      // 이수조건 필드 초기 상태 숨김
+      const reqField = clone.querySelector(".requirement-select")?.closest(".field");
+      if (reqField) reqField.style.display = "none";
+      const reqSel = clone.querySelector(".requirement-select");
+      if (reqSel) { reqSel.disabled = true; reqSel.innerHTML = `<option value="">(교육과정을 먼저 선택)</option>`; }
+
+      container.appendChild(clone);
+      bindRow(clone);
+
+      // ★★★ 새 행 드롭다운 재바인딩 + 트리거 안전장치
+      initCustomDropdowns(clone);
+
+      // 시작학기 기본값(레이블/hidden) 주입
+      const year = new Date().getFullYear();
+      const semVal = "{{ option_map['semester_simple'][0].value if option_map['semester_simple'] else '1학기' }}";
+      const semLabel = "{{ option_map['semester_simple'][0].label if option_map['semester_simple'] else '1학기' }}";
+
+      const sy = clone.querySelector('input[name="enroll_start_year"]');
+      const ss = clone.querySelector('input[name="enroll_start_semester"]');
+      if (sy && !sy.value) sy.value = String(year);
+      if (ss && !ss.value) ss.value = semVal;
+
+      clone.querySelector('.custom-dropdown-trigger[data-target^="enroll_start_year_menu_"] .custom-dropdown-label')
+        ?.replaceChildren(document.createTextNode(String(year)));
+
+      clone.querySelector('.custom-dropdown-trigger[data-target^="enroll_start_sem_menu_"] .custom-dropdown-label')
+        ?.replaceChildren(document.createTextNode(semLabel));
+    });
+  }
+}

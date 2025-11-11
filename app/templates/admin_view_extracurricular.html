@@ -4,88 +4,481 @@
 {% block content %}
 <section class="section-card">
   <header class="section-card__header">
-    <h1 class="section-card__title">비교과 프로그램 목록</h1>
+    <h1 class="section-card__title">비교과 프로그램 조회</h1>
+    <p class="section-card__desc">
+      행의 “상세” 버튼으로 개요와 참석자를 확인하고, “참석자 추가” 버튼으로 내부 학생/외부 참석자를 등록할 수 있습니다.
+    </p>
   </header>
 
-  <div class="section-card__inner">
-    {% if programs|length == 0 %}
-      <p class="field-hint-block">등록된 비교과 프로그램이 없습니다.</p>
-    {% endif %}
+  <!-- 상단 툴바 -->
+  <div class="toolbar" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+    <button id="btn-refresh" class="btn">새로고침</button>
+    <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+      <label class="text-dim" for="page-size">페이지 당</label>
+      <select id="page-size" class="field-input" style="width:100px;">
+        <option>10</option><option selected>20</option><option>50</option><option>100</option>
+      </select>
+    </div>
+  </div>
 
-    {% for p in programs %}
-      <div class="subsection-card" style="margin-bottom:1rem;">
-        <div class="subsection-card__header">
-          <div style="display:flex; flex-wrap:wrap; gap:.5rem; align-items:baseline;">
-            <strong>{{ p.program_name }}</strong>
-            <span class="badge-soft">
-              {{ p.program_type }}
-            </span>
-            <span class="badge-soft">
-              {{ p.open_year }}년 {{ p.open_month }}월 개최
-            </span>
+  <!-- 메인 테이블 -->
+  <div id="program-table"></div>
+</section>
+
+<!-- 상세 모달 -->
+<div id="prog-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60;">
+  <div class="modal-panel" style="position:absolute; top:6vh; left:50%; transform:translateX(-50%); width:min(980px, 92vw); background:#fff; border-radius:14px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div>
+        <div id="prog-title" style="font-size:1.1rem; font-weight:700;">프로그램명</div>
+        <div id="prog-subtitle" class="text-dim" style="font-size:.9rem;"></div>
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button id="btn-prog-close" class="btn">닫기</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="padding:12px 16px 16px;">
+      <!-- 개요 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">개요</div>
+        <div id="prog-overview" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;">
+          <!-- JS 채움 -->
+        </div>
+      </div>
+
+      <!-- 교육과정 매핑 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">교육과정 매핑</div>
+        <div id="prog-curricula" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;">
+          <!-- JS 채움 -->
+        </div>
+      </div>
+
+      <!-- 참석자 목록 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <div class="text-dim" style="font-weight:600;">참석자 목록</div>
+          <button type="button" class="btn small" id="btn-open-enroll">참석자 추가</button>
+        </div>
+        <div id="enroll-table"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 참석자 추가 모달 -->
+<div id="enroll-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:70;">
+  <div class="modal-panel" style="position:absolute; top:8vh; left:50%; transform:translateX(-50%); width:min(720px,92vw); background:#fff; border-radius:12px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid #e5e7eb;">
+      <div style="font-weight:700;">참석자 추가</div>
+      <button type="button" class="btn" id="btn-enroll-close">닫기</button>
+    </div>
+
+    <div class="modal-body" style="padding:12px 14px;">
+      <div class="field">
+        <label>참석 유형</label>
+        <select id="enroll-type" class="field-input">
+          <option value="student">내부 학생</option>
+          <option value="external">외부 참석자</option>
+        </select>
+      </div>
+
+      <!-- 내부 학생 선택 -->
+      <div id="pane-student" style="margin-top:8px;">
+        <div class="text-dim" style="margin-bottom:6px;">학생 검색 후 제안에서 선택</div>
+        <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+          <input id="student-search" class="field-input" placeholder="이름 또는 학번으로 검색" style="min-width:280px;">
+          <div id="student-suggest" style="position:relative;"></div>
+        </div>
+      </div>
+
+      <!-- 외부 참석자 입력 -->
+      <div id="pane-external" style="display:none; margin-top:8px;">
+        <div class="form-row">
+          <div class="field flex-1">
+            <label>소속(필수)</label>
+            <input id="ext-affiliation" class="field-input" placeholder="예: 00대학교 / 00기업">
+          </div>
+          <div class="field flex-1">
+            <label>이름(필수)</label>
+            <input id="ext-name" class="field-input" placeholder="홍길동">
           </div>
         </div>
-
-        <div class="subsection-card__body">
-          <dl class="definition-grid">
-            <div class="definition-grid__row">
-              <dt>업데이트</dt>
-              <dd>{{ p.updated_at }}</dd>
-            </div>
-          </dl>
-
-          <div class="subsection-card nested" style="margin-top:1rem;">
-            <div class="subsection-card__header">
-              <strong>교육과정 매핑 / 환산 점수</strong>
-            </div>
-
-            <div class="subsection-card__body">
-              {% set maps = prog_map.get(p.id, []) %}
-              {% if maps|length == 0 %}
-                <p class="field-hint-block">매핑 없음</p>
-              {% else %}
-                <div class="simple-table-wrapper">
-                  <table class="simple-table">
-                    <thead>
-                      <tr>
-                        <th>교육과정</th>
-                        <th>환산 점수</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for m in maps %}
-                      <tr>
-                        <td>
-                          {% if m.curriculum_id %}
-                            {{ curriculum_name_by_id.get(m.curriculum_id, "(알 수 없음)") }}
-                            <span class="text-dim">[#{{ m.curriculum_id }}]</span>
-                          {% else %}
-                            (미해당)
-                          {% endif %}
-                        </td>
-                        <td>{{ m.recognized_credit_ratio }}</td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% endif %}
-            </div>
+        <div class="form-row">
+          <div class="field flex-1">
+            <label>이메일(필수)</label>
+            <input id="ext-email" class="field-input" placeholder="user@example.com">
           </div>
+          <div class="field flex-1"></div>
+        </div>
+      </div>
 
-          <div class="subsection-card nested" style="margin-top:1rem;">
-            <div class="subsection-card__header">
-              <strong>참가자 목록 (추후 개발 예정)</strong>
-            </div>
-            <div class="subsection-card__body">
-              <p class="field-hint-block">
-                참가자(학생) 출석 / 인정점수 기록 기능은 추후 개발 예정입니다.
-              </p>
-            </div>
-          </div>
-        </div><!-- /.subsection-card__body -->
-      </div><!-- /.subsection-card -->
-    {% endfor %}
-  </div><!-- /.section-card__inner -->
-</section>
+      <!-- 공통 스냅샷 -->
+      <div class="form-row" style="margin-top:8px;">
+        <div class="field flex-1">
+          <label>참석자 구분(필수)</label>
+          <select id="participation-type" class="field-input">
+            <option>학생</option>
+            <option>운영진</option>
+            <option>교수</option>
+            <option>조교</option>
+            <option>연구원</option>
+            <option>외부</option>
+          </select>
+        </div>
+        <div class="field flex-1">
+          <label>학위과정(스냅샷, 선택)</label>
+          <select id="degree-snapshot" class="field-input">
+            <option value="">(없음)</option>
+            <option>학사</option>
+            <option>석사</option>
+            <option>박사</option>
+            <option>석박통합</option>
+            <option>기타</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field flex-1">
+          <label>학번(스냅샷, 선택)</label>
+          <input id="studentno-snapshot" class="field-input" placeholder="내부 학생이면 자동 채움 가능">
+        </div>
+        <div class="field flex-1">
+          <label>소속(스냅샷, 필수)</label>
+          <input id="aff-snapshot" class="field-input" placeholder="예: SNU 의료정보학과">
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:10px;">
+        <button type="button" id="btn-enroll-submit" class="btn primary">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tabulator CDN #}
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css">
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const PAGE_SIZE_SELECT = document.getElementById('page-size');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+
+  // 상세 모달 엘리먼트
+  const MODAL = document.getElementById('prog-modal');
+  const BTN_CLOSE = document.getElementById('btn-prog-close');
+  const TITLE = document.getElementById('prog-title');
+  const SUBTITLE = document.getElementById('prog-subtitle');
+  const OV = document.getElementById('prog-overview');
+
+  // 교육과정 매핑 컨테이너
+  const CUR = document.getElementById('prog-curricula');
+
+  // 참석자 추가 모달
+  const EN_MODAL = document.getElementById('enroll-modal');
+  const BTN_EN_CLOSE = document.getElementById('btn-enroll-close');
+  const BTN_OPEN_ENROLL = document.getElementById('btn-open-enroll');
+
+  // 참석자 테이블
+  let enrollTable = null;
+
+  // 상태
+  let currentProgramId = null;
+  let selectedStudentId = null;
+  let acTimer = null;
+
+  // 액션 버튼 렌더러
+  function actionFormatter(cell){
+    const row = cell.getRow().getData();
+    const id = row.id;
+    return `
+      <div class="flex gap-2">
+        <button class="btn small" data-prog-detail="${id}">상세</button>
+        <button class="btn small" data-prog-add="${id}">참석자 추가</button>
+      </div>
+    `;
+  }
+
+  // 메인 프로그램 테이블
+  const programTable = new Tabulator("#program-table", {
+    height: 560,
+    layout: "fitDataStretch",
+    pagination: true,
+    paginationMode: "remote",
+    paginationSize: Number(PAGE_SIZE_SELECT.value || 20),
+    ajaxURL: "/api/tabulator/extracurricular",
+    ajaxConfig: "POST",
+    ajaxContentType: "form",
+    columns: [
+      { title:"액션", field:"id", width:160, hozAlign:"center", formatter:actionFormatter, headerSort:false },
+      { title:"연도", field:"open_year", headerFilter:"number", hozAlign:"center" },
+      { title:"월", field:"open_month", headerFilter:"number", hozAlign:"center" },
+      { title:"유형", field:"program_type", headerFilter:"input" },
+      { title:"프로그램명", field:"program_name", headerFilter:"input" },
+      { title:"세부명", field:"sub_program_name", headerFilter:"input" },
+      { title:"주관/주최", field:"organizer", headerFilter:"input" },
+      { title:"수정일", field:"updated_at", headerFilter:"input" },
+    ],
+    rowFormatter: function(row){
+      const el = row.getElement();
+      el.addEventListener('click', (e) => {
+        const dBtn = e.target.closest('[data-prog-detail]');
+        const aBtn = e.target.closest('[data-prog-add]');
+        if (dBtn){
+          const id = Number(dBtn.getAttribute('data-prog-detail'));
+          openDetail(id);
+        } else if (aBtn){
+          const id = Number(aBtn.getAttribute('data-prog-add'));
+          openAddModal(id);
+        }
+      });
+    },
+    paginationCounter: "rows",
+  });
+
+  PAGE_SIZE_SELECT.addEventListener('change', () => {
+    programTable.setPageSize(Number(PAGE_SIZE_SELECT.value || 20));
+    programTable.setPage(1);
+  });
+  BTN_REFRESH.addEventListener('click', () => programTable.replaceData());
+
+  // 상세 열기
+  async function openDetail(id){
+    currentProgramId = id;
+    MODAL.style.display = 'block';
+    // 개요 로드
+    try{
+      const res = await fetch(`/api/program/${id}/overview`);
+      const j = await res.json();
+      if (!j.ok) throw new Error('overview !ok');
+      const d = j.data;
+
+      const title = d.program_name || '(무제)';
+      const subtitle = [
+        d.open_year ? String(d.open_year) : '',
+        d.open_month ? `${d.open_month}월` : '',
+        d.program_type || ''
+      ].filter(Boolean).join(' • ');
+
+      TITLE.textContent = title;
+      SUBTITLE.textContent = subtitle;
+
+      OV.innerHTML = `
+        <div>프로그램명: <b>${d.program_name || '-'}</b></div>
+        <div>세부 프로그램명: <b>${d.sub_program_name || '-'}</b></div>
+        <div>유형: <b>${d.program_type || '-'}</b></div>
+        <div>주관/주최: <b>${d.organizer || '-'}</b></div>
+        <div>연/월: <b>${d.open_year ?? '-'} / ${d.open_month ?? '-'}</b></div>
+        <div>행사자료: <b>${d.event_material || '-'}</b></div>
+        <div style="grid-column:1/-1;">수정일: <b>${d.updated_at || '-'}</b></div>
+      `;
+
+      // ✅ 교육과정 매핑 렌더
+      if (CUR){
+        const cur = Array.isArray(d.curricula) ? d.curricula : [];
+        if (!cur.length){
+          CUR.innerHTML = `<div style="grid-column:1/-1; color:#6b7280;">연결된 교육과정이 없습니다.</div>`;
+        } else {
+          CUR.innerHTML = cur.map((c) => {
+            const nm = c.curriculum_name || '(과정명 없음)';    // CurriculumProgram.course_name
+            const ty = c.curriculum_type ? ` <span class="text-dim">(${c.curriculum_type})</span>` : ''; // CurriculumProgram.program_type
+            const ratio = (c.recognized_credit_ratio ?? '') === '' ? '-' : String(c.recognized_credit_ratio);
+            return `
+              <div>• 교육과정: <b>${nm}</b>${ty}</div>
+              <div>환산점수(1회당): <b>${ratio}</b></div>
+            `;
+          }).join('');
+        }
+      }
+    }catch(err){
+      console.error('[program] overview error', err);
+      OV.innerHTML = `<div style="color:#b91c1c;">상세 로드 중 오류가 발생했습니다.</div>`;
+      if (CUR) CUR.innerHTML = `<div style="grid-column:1/-1; color:#b91c1c;">교육과정 매핑 로드 중 오류가 발생했습니다.</div>`;
+    }
+
+    // 참석자 표 로드/초기화
+    if (!enrollTable){
+      enrollTable = new Tabulator("#enroll-table", {
+        height: 380,
+        layout: "fitDataStretch",
+        columns: [
+          { title:"구분", field:"participation_type", hozAlign:"center", headerFilter:"input" },
+          { title:"이름", field:"name", headerFilter:"input" },
+          { title:"소속", field:"affiliation_snapshot", headerFilter:"input" },
+          { title:"학위", field:"degree_program_snapshot", headerFilter:"input" },
+          { title:"학번", field:"student_no_snapshot", headerFilter:"input" },
+          { title:"내부학생ID", field:"student_id", hozAlign:"center" },
+          { title:"이메일", field:"email", headerFilter:"input" },
+          { title:"등록경로", field:"enroll_source", headerFilter:"input" },
+          { title:"예외", field:"exception_case", hozAlign:"center", formatter:"tickCross" },
+          { title:"수정일", field:"updated_at" },
+        ],
+      });
+    }
+    await reloadEnrollments(currentProgramId);
+  }
+
+  async function reloadEnrollments(programId){
+    try{
+      const res = await fetch(`/api/program/${programId}/enrollments`);
+      const list = await res.json();
+      enrollTable.setData(Array.isArray(list) ? list : []);
+    }catch(err){
+      console.error('[program] enrollments error', err);
+      enrollTable.setData([]);
+    }
+  }
+
+  BTN_CLOSE.addEventListener('click', () => {
+    MODAL.style.display = 'none';
+  });
+
+  // 참석자 추가 모달 오픈(상세에서 버튼)
+  BTN_OPEN_ENROLL.addEventListener('click', () => {
+    if (!currentProgramId){ alert('프로그램을 먼저 선택하세요.'); return; }
+    openAddModal(currentProgramId);
+  });
+
+  // 참석자 추가 모달 로직
+  window.openAddModal = function(programId){
+    currentProgramId = programId;
+    selectedStudentId = null;
+
+    // 초기화
+    document.getElementById('enroll-type').value = 'student';
+    document.getElementById('pane-student').style.display = '';
+    document.getElementById('pane-external').style.display = 'none';
+    document.getElementById('student-search').value = '';
+    document.getElementById('student-suggest').innerHTML = '';
+    document.getElementById('participation-type').value = '학생';
+    document.getElementById('degree-snapshot').value = '';
+    document.getElementById('studentno-snapshot').value = '';
+    document.getElementById('aff-snapshot').value = '';
+
+    EN_MODAL.style.display = 'block';
+  };
+
+  document.getElementById('enroll-type')?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    document.getElementById('pane-student').style.display = (v === 'student') ? '' : 'none';
+    document.getElementById('pane-external').style.display = (v === 'external') ? '' : 'none';
+  });
+
+  BTN_EN_CLOSE.addEventListener('click', () => {
+    EN_MODAL.style.display = 'none';
+  });
+
+  // 자동완성
+  const INPUT = document.getElementById('student-search');
+  const SUGGEST = document.getElementById('student-suggest');
+
+  INPUT?.addEventListener('input', () => {
+    const q = INPUT.value.trim();
+    selectedStudentId = null;
+    if (acTimer) clearTimeout(acTimer);
+    if (q.length < 1){ renderSuggest([]); return; }
+    acTimer = setTimeout(fetchSuggest, 200);
+  });
+
+  async function fetchSuggest(){
+    const q = INPUT.value.trim();
+    if (!q) return renderSuggest([]);
+    const res = await fetch(`/api/students/search?q=${encodeURIComponent(q)}`);
+    const list = await res.json();
+    renderSuggest(list);
+  }
+
+  function renderSuggest(list){
+    SUGGEST.innerHTML = "";
+    if (!list || !list.length) return;
+    const box = document.createElement('div');
+    box.style.position = 'absolute';
+    box.style.top = '36px';
+    box.style.left = '0';
+    box.style.zIndex = '10000';
+    box.style.minWidth = '280px';
+    box.style.maxHeight = '240px';
+    box.style.overflow = 'auto';
+    box.style.background = '#fff';
+    box.style.border = '1px solid #e5e7eb';
+    box.style.borderRadius = '8px';
+    list.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn';
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.style.textAlign = 'left';
+      btn.style.background = 'transparent';
+      btn.style.border = 'none';
+      btn.style.padding = '8px 10px';
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => {
+        INPUT.value = item.label;
+        selectedStudentId = item.student_id;
+        const sno = (item.student_no || "").toString();
+        if (sno) document.getElementById('studentno-snapshot').value = sno;
+        SUGGEST.innerHTML = "";
+      });
+      box.appendChild(btn);
+    });
+    SUGGEST.appendChild(box);
+  }
+
+  // 제출
+  document.getElementById('btn-enroll-submit')?.addEventListener('click', async () => {
+    if (!currentProgramId){ alert('프로그램을 확인해주세요.'); return; }
+
+    const type = document.getElementById('enroll-type').value;
+    const participationType = document.getElementById('participation-type').value;
+    const degreeSnap = document.getElementById('degree-snapshot').value;
+    const snoSnap = document.getElementById('studentno-snapshot').value.trim();
+    const affSnap = document.getElementById('aff-snapshot').value.trim();
+
+    if (!participationType){ alert('참석자 구분을 선택하세요.'); return; }
+    if (!affSnap){ alert('소속(스냅샷)을 입력하세요.'); return; }
+
+    const fd = new FormData();
+    fd.append('participation_type', participationType);
+    fd.append('degree_program_snapshot', degreeSnap);
+    fd.append('student_no_snapshot', snoSnap);
+    fd.append('affiliation_snapshot', affSnap);
+
+    if (type === 'student'){
+      if (!selectedStudentId){ alert('학생을 검색/선택하세요.'); return; }
+      fd.append('mode', 'student');
+      fd.append('student_id', String(selectedStudentId));
+    } else {
+      const aff = document.getElementById('ext-affiliation').value.trim();
+      const name = document.getElementById('ext-name').value.trim();
+      const email = document.getElementById('ext-email').value.trim();
+      if (!aff || !name || !email){
+        alert('외부 참석자 소속/이름/이메일을 입력하세요.');
+        return;
+      }
+      fd.append('mode', 'external');
+      fd.append('ext_affiliation', aff);
+      fd.append('ext_name', name);
+      fd.append('ext_email', email);
+    }
+
+    const res = await fetch(`/api/program/${encodeURIComponent(currentProgramId)}/add_enrollment`, {
+      method: 'POST',
+      body: fd
+    });
+    const j = await res.json();
+    if (j && j.ok){
+      alert('등록 완료');
+      EN_MODAL.style.display = 'none';
+      if (document.getElementById('prog-modal').style.display !== 'none'){
+        await reloadEnrollments(currentProgramId);
+      }
+    }else{
+      alert('등록 실패: ' + (j?.message || 'unknown'));
+    }
+  });
+});
+</script>
 {% endblock %}

@@ -8,6 +8,7 @@
 <script>
   window.addEventListener("DOMContentLoaded", () => {
     alert("학생 등록이 완료되었습니다.");
+    history.replaceState(null, "", window.location.pathname);
   });
 </script>
 {% endif %}
@@ -102,28 +103,16 @@
           <span class="field-required">*</span>
         </label>
 
-        <div class="inline-flex">
-          <select
-            class="input-control inline-first"
-            name="nationality"
-            id="nationality_select"
-            required
-          >
-            {% for opt in option_map["nationality"] %}
-              <option value="{{ opt.value }}">{{ opt.label }}</option>
-            {% endfor %}
-            <option value="__OTHER__">기타(직접입력)</option>
-          </select>
+        <select class="input-control" name="nationality" id="nationality_select">
+          {% for opt in option_map["nationality"] %}
+          <option value="{{ opt.value }}">{{ opt.label }}</option>
+          {% endfor %}
+          <option value="__OTHER__">기타(직접입력)</option>
+        </select>
 
-          <input
-            class="input-control inline-second"
-            type="text"
-            id="nationality_other"
-            name="nationality_custom"
-            placeholder="직접 입력"
-            style="display:none;"
-          />
-        </div>
+        <input class="input-control" type="text" id="nationality_inline_input"
+              name="nationality_custom" placeholder="국적 직접 입력"
+              style="display:none; margin-top:6px;">
       </div>
 
       <div class="field">
@@ -188,15 +177,14 @@
       <div class="field">
         <label class="field-label">
           이메일(개인)
-          <span class="field-required">*</span>
         </label>
+
         <div class="inline-email" id="personal_email_row">
           <input
             class="input-control email-local"
             type="text"
             name="email_other_local"
             placeholder="user"
-            required
           />
           <span class="at-sign">@</span>
 
@@ -204,8 +192,8 @@
             class="input-control email-domain"
             id="email_other_domain_select"
             name="email_other_domain"
-            required
           >
+            <option value="">(미입력)</option>
             {% for opt in option_map["email_domain"] %}
               <option value="{{ opt.value }}">{{ opt.label }}</option>
             {% endfor %}
@@ -267,11 +255,13 @@
       <div class="field">
         <label class="field-label" for="collaborative_program">
           협동과정
+          <span class="field-required">*</span>
         </label>
         <select
           class="input-control"
           id="collaborative_program"
           name="collaborative_program"
+          required
         >
           {% for opt in option_map["collaborative_program"] %}
             <option value="{{ opt.value }}">{{ opt.label }}</option>
@@ -629,6 +619,119 @@
     </div> {# /.section-card__inner #}
   {% endcall %}
 
+  {# ───────── 프로그램 등록(학생-교육과정 매핑) ───────── #}
+  {% call section_card("프로그램 등록 (학생-교육과정 매핑)", 3) %}
+  <div class="section-card__inner">
+
+    <div id="program_rows_container">
+      <div class="program-row" data-index="0">
+        <!-- 교육과정 -->
+        <div class="field">
+          <label class="field-label">교육과정 <span class="field-required">*</span></label>
+          <select class="input-control program-select" name="curriculum_program_id" required>
+            <option value="">선택</option>
+            {% for cp in option_map["curriculum_program"] %}
+              <option value="{{ cp.value }}">{{ cp.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- 이수조건: 별표(필수) + 처음엔 disabled, 프로그램 선택되면 옵션 로드/활성화 -->
+        <div class="field">
+          <label class="field-label">이수조건 <span class="field-required">*</span></label>
+          <select class="input-control requirement-select" name="requirement_id" disabled required>
+            <option value="">(교육과정을 먼저 선택)</option>
+          </select>
+        </div>
+
+        <!-- 시작학기 -->
+        <div class="field">
+          <label class="field-label">시작학기 <span class="field-required">*</span></label>
+          <div class="inline-pair">
+
+            <!-- 연도(커스텀드롭다운 유지) -->
+            <div class="inline-field">
+              <div class="custom-dropdown-wrapper">
+                <button type="button" class="custom-dropdown-trigger" data-target="enroll_start_year_menu_0">
+                  <span class="custom-dropdown-label">{{ current_year }}</span>
+                  <span class="custom-dropdown-arrow">▼</span>
+                </button>
+                <div class="custom-dropdown-menu" id="enroll_start_year_menu_0">
+                  {% for y in range(2000,2101) %}
+                    <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                  {% endfor %}
+                </div>
+                <input type="hidden" name="enroll_start_year" value="{{ current_year }}" required>
+              </div>
+            </div>
+
+            <!-- 학기(select로) -->
+            <div class="inline-field">
+              <select class="input-control" name="enroll_start_semester" required>
+                {% for opt in option_map['semester_simple'] %}
+                <option value="{{ opt.value }}">{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 종료학기 -->
+        <div class="field">
+          <label class="field-label">종료학기</label>
+          <div class="inline-pair">
+
+            <!-- 연도 -->
+            <div class="inline-field">
+              <div class="custom-dropdown-wrapper">
+                <button type="button" class="custom-dropdown-trigger" data-target="enroll_end_year_menu_0">
+                  <span class="custom-dropdown-label">(미입력)</span>
+                  <span class="custom-dropdown-arrow">▼</span>
+                </button>
+                <div class="custom-dropdown-menu" id="enroll_end_year_menu_0">
+                  <div class="custom-dropdown-option" data-value="">(미입력)</div>
+                  {% for y in range(2000,2101) %}
+                  <div class="custom-dropdown-option" data-value="{{ y }}">{{ y }}</div>
+                  {% endfor %}
+                </div>
+                <input type="hidden" name="enroll_end_year" value="">
+              </div>
+            </div>
+
+            <!-- 학기(select) -->
+            <div class="inline-field">
+              <select class="input-control" name="enroll_end_semester">
+                <option value="">(미입력)</option>
+                {% for opt in option_map['semester_simple'] %}
+                <option value="{{ opt.value }}">{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+
+
+        <!-- 활성: 입력칸 제거, 항상 Y로 전송 -->
+        <input type="hidden" name="enroll_is_active" value="Y" />
+
+        <button type="button" class="btn-ghost-danger btn-program-remove">🗑 삭제</button>
+      </div>
+    </div>
+
+    <div class="program-actions-row">
+      <button type="button" class="btn-ghost-add" id="btn_program_add">➕ 프로그램 추가</button>
+    </div>
+
+    <div class="field-hint-block">
+      • <b>교육과정</b>을 먼저 선택하면, 해당 과정의 <b>이수조건</b> 목록이 자동으로 로딩됩니다.<br/>
+      • 최소 1개 이상의 프로그램 등록 행이 필요합니다.
+    </div>
+  </div>
+  {% endcall %}
+
   {# ───────── 하단 저장/리셋 공통 파셜 ───────── #}
   {% include "partials/_form_actions.html" %}
 </form>
@@ -642,168 +745,269 @@
     hasSpace,
     isValidDateYYYYMMDD,
     hasDuplicateLeaveHistory,
-    resetFormStateToDefault
+    resetFormStateToDefault,
+    initNationalityInlineSwap,
+    syncEmailDomain,
+    initProgramEnrollment
   } from "{{ request.url_for('static', path='js/admin_form.js') }}";
 
   const CURRENT_YEAR = "{{ current_year }}";
-
-  function syncNationality() {
-    const sel   = document.getElementById("nationality_select");
-    const other = document.getElementById("nationality_other");
-    if (!sel || !other) return;
-    if (sel.value === "__OTHER__") {
-      other.style.display = "inline-block";
-      other.required = true;
-    } else {
-      other.style.display = "none";
-      other.required = false;
-      other.value = "";
-    }
-  }
-
-  function syncEmailDomain() {
-    const sel   = document.getElementById("email_other_domain_select");
-    const other = document.getElementById("email_other_domain_other");
-    if (!sel || !other) return;
-    if (sel.value === "__OTHER__") {
-      sel.style.display = "none";
-      other.style.display = "inline-block";
-      other.required = true;
-    } else {
-      other.style.display = "none";
-      other.required = false;
-      other.value = "";
-      sel.style.display = "inline-block";
-    }
-  }
+  const REQUIRE_API  = "{{ request.url_for('get_requirements_by_program') }}";
 
   function onFormSubmit(e) {
-    // 공백 금지 필드
     const dep = document.getElementById("department_input");
     const maj = document.getElementById("major_input");
-    if (dep && hasSpace(dep.value)) {
-      alert("학과는 공백 없이 입력해야 합니다.");
-      e.preventDefault();
-      return;
-    }
-    if (maj && hasSpace(maj.value)) {
-      alert("전공은 공백 없이 입력해야 합니다.");
-      e.preventDefault();
-      return;
-    }
+    if (dep && hasSpace(dep.value)) { alert("학과는 공백 없이 입력해야 합니다."); e.preventDefault(); return; }
+    if (maj && hasSpace(maj.value)) { alert("전공은 공백 없이 입력해야 합니다."); e.preventDefault(); return; }
 
-    // 생년월일 sanity check
     const birthEl = document.getElementById("birthdate");
     if (birthEl) {
       const val = birthEl.value.trim();
-      if (!isValidDateYYYYMMDD(val)) {
-        alert("생년월일을 올바른 형식(YYYY-MM-DD)으로 입력하세요.");
-        e.preventDefault();
-        return;
-      }
+      if (!isValidDateYYYYMMDD(val)) { alert("생년월일을 올바른 형식(YYYY-MM-DD)으로 입력하세요."); e.preventDefault(); return; }
     }
 
-    // 국적 기타일 때는 직접입력 필수
-    const natSel   = document.getElementById("nationality_select");
-    const natOther = document.getElementById("nationality_other");
-    if (natSel && natOther && natSel.value === "__OTHER__") {
-      if (!natOther.value.trim()) {
-        alert("국적을 직접 입력하세요.");
-        e.preventDefault();
-        return;
-      }
+    const natSel = document.getElementById("nationality_select");
+    const natOther = document.getElementById("nationality_inline_input");
+    if (natSel && natOther && natSel.value === "__OTHER__" && !natOther.value.trim()) {
+      alert("국적을 직접 입력하세요."); e.preventDefault(); return;
     }
 
-    // 이메일 도메인 기타일 때는 직접입력 필수
-    const domSel   = document.getElementById("email_other_domain_select");
+    const domSel = document.getElementById("email_other_domain_select");
     const domOther = document.getElementById("email_other_domain_other");
-    if (domSel && domOther && domSel.style.display === "none") {
-      if (!domOther.value.trim()) {
-        alert("이메일 도메인을 직접 입력하세요.");
-        e.preventDefault();
-        return;
+    if (domSel && domOther && domSel.value === "__OTHER__" && !domOther.value.trim()) {
+      alert("이메일 도메인을 직접 입력하세요."); e.preventDefault(); return;
+    }
+
+    // 프로그램 등록 행 유효성
+    const rows = document.querySelectorAll("#program_rows_container .program-row");
+    if (!rows.length) { alert("최소 한 개 이상의 프로그램 등록 행이 필요합니다."); e.preventDefault(); return; }
+
+    for (const row of rows) {
+      const prog  = row.querySelector('select[name="curriculum_program_id"]');
+      const req   = row.querySelector('select[name="requirement_id"]');
+      const sy    = row.querySelector('input[name="enroll_start_year"]');       // hidden
+      const ssSel = row.querySelector('select[name="enroll_start_semester"]');  // select
+
+      if (!prog || !prog.value.trim()) { alert("교육과정을 선택하세요."); e.preventDefault(); return; }
+      if (!req  || !req.value.trim())  { alert("이수조건을 선택하세요.");   e.preventDefault(); return; }
+      if (!sy   || !String(sy.value).trim()) { alert("시작연도를 선택하세요."); e.preventDefault(); return; }
+      if (!ssSel || !String(ssSel.value).trim()) { alert("시작학기를 선택하세요."); e.preventDefault(); return; }
+
+      // 종료학기 검증/정규화: 연도 없으면 둘 다 전송 제외, 연도 있으면 학기 필수
+      const ey    = row.querySelector('input[name="enroll_end_year"]');         // hidden
+      const esSel = row.querySelector('select[name="enroll_end_semester"]');    // select
+      const eyVal = (ey?.value || "").trim();
+      const esVal = (esSel?.value || "").trim();
+
+      if (!eyVal) {
+        if (ey) ey.disabled = true;
+        if (esSel) { esSel.value = ""; esSel.disabled = true; }
+      } else {
+        if (!esVal) {
+          alert("종료연도 입력 시 종료학기도 선택해주세요.");
+          e.preventDefault();
+          return;
+        }
       }
     }
+  }
+  // ---------- 프로그램 행 유틸 ----------
+  function nextProgramIndex(container) {
+    let m = -1;
+    container.querySelectorAll(".program-row").forEach(r => {
+      const v = parseInt(r.dataset.index || "-1", 10);
+      if (!Number.isNaN(v)) m = Math.max(m, v);
+    });
+    return m + 1;
+  }
 
-    // 최종학력 관련 필수 묶음
-    const prevDeg  = document.getElementById("previous_degree");
-    const prevMaj  = document.getElementById("previous_major");
-    const prevYr   = document.getElementById("previous_degree_year");
-    const prevInst = document.getElementById("previous_institution");
+  function renumberProgramRowIds(row, idx) {
+    const map = [
+      ["enroll_start_year_menu_", `enroll_start_year_menu_${idx}`],
+      ["enroll_start_sem_menu_",  `enroll_start_sem_menu_${idx}`],
+      ["enroll_end_year_menu_",   `enroll_end_year_menu_${idx}`],
+      ["enroll_end_sem_menu_",    `enroll_end_sem_menu_${idx}`],
+    ];
+    map.forEach(([prefix, newid]) => {
+      const menu = row.querySelector(`[id^="${prefix}"]`);
+      if (menu) menu.id = newid;
+      const btn  = row.querySelector(`.custom-dropdown-trigger[data-target^="${prefix}"]`);
+      if (btn) btn.setAttribute("data-target", newid);
+    });
+    row.dataset.index = String(idx);
+  }
 
-    if (!prevDeg.value.trim()) {
-      alert("입학 전 최종학위를 선택하세요.");
-      e.preventDefault();
-      return;
-    }
-    if (!prevMaj.value.trim()) {
-      alert("입학 전 전공을 입력하세요.");
-      e.preventDefault();
-      return;
-    }
-    if (!prevYr.value.trim()) {
-      alert("최종학위 취득연도를 선택하세요.");
-      e.preventDefault();
-      return;
-    }
-    if (!prevInst.value.trim()) {
-      alert("최종학위 대학명을 입력하세요.");
-      e.preventDefault();
-      return;
-    }
+  function resetProgramRowValues(row) {
+    // select 값 리셋
+    row.querySelectorAll("select.program-select").forEach(s => s.value = "");
+    row.querySelectorAll("select.requirement-select").forEach(s => {
+      s.disabled = true;
+      s.innerHTML = '<option value="">(교육과정을 먼저 선택)</option>';
+      s.value = "";
+    });
+    // hidden 값 리셋
+    row.querySelectorAll('input[name="enroll_start_year"]').forEach(i => i.value = "");
+    row.querySelectorAll('input[name="enroll_end_year"]').forEach(i => i.value = "");
+    const startSemSel = row.querySelector('select[name="enroll_start_semester"]');
+    if (startSemSel) startSemSel.selectedIndex = 0;   // 첫 옵션(예: 1학기)
+    const endSemSel = row.querySelector('select[name="enroll_end_semester"]');
+    if (endSemSel) endSemSel.selectedIndex = 0;       // (미입력)
 
-    // 휴학 이력 (연도+학기) 중복 검사
-    const dupCheck = hasDuplicateLeaveHistory();
-    if (dupCheck.dup) {
-      alert(
-        `휴학 이력에 ${dupCheck.year}년 ${dupCheck.sem}가 중복으로 입력되었습니다.`
-      );
-      e.preventDefault();
-      return;
+    // 라벨 초기화
+    row.querySelectorAll(".custom-dropdown-trigger").forEach(btn => {
+      const t = btn.getAttribute("data-target") || "";
+      const labelEl = btn.querySelector(".custom-dropdown-label");
+      if (!labelEl) return;
+      if (t.includes("_start_year_")) labelEl.textContent = "연도";
+      else if (t.includes("_start_sem_")) labelEl.textContent = "학기";
+      else if (t.includes("_end_year_")) labelEl.textContent = "(미입력)";
+      else if (t.includes("_end_sem_")) labelEl.textContent = "(미입력)";
+    });
+  }
+
+  // ========= (A) 드롭다운 보완 SHIM: initCustomDropdowns 수정 없이 문제 해결 =========
+  const progContainer = document.getElementById("program_rows_container");
+
+  // 1) 메뉴 열고 닫기(위임) + 옵션 클릭 시 hidden/라벨 확정 기록
+  (function mountDropdownShim(){
+    if (!progContainer || progContainer.dataset.dropdownShimBound) return;
+    progContainer.dataset.dropdownShimBound = "1";
+
+    const closeAll = (root=document) => {
+      root.querySelectorAll(".custom-dropdown-menu.is-open")
+        .forEach(m => m.classList.remove("is-open"));
+    };
+    const nearestWrapper = (el) => el.closest?.(".custom-dropdown-wrapper");
+
+    // 버튼 클릭 → 해당 메뉴만 open
+    progContainer.addEventListener("click", (e) => {
+      const btn = e.target.closest?.(".custom-dropdown-trigger");
+      if (!btn) return;
+      e.preventDefault(); e.stopPropagation();
+      const targetId = btn.getAttribute("data-target");
+      if (!targetId) return;
+      closeAll(document);
+      const menu = document.getElementById(targetId);
+      if (menu) menu.classList.add("is-open");
+    });
+
+    // 옵션 클릭 → hidden value & 라벨 갱신
+    progContainer.addEventListener("click", (e) => {
+      const opt = e.target.closest?.(".custom-dropdown-option");
+      if (!opt) return;
+      const menu = opt.closest(".custom-dropdown-menu");
+      if (!menu) return;
+      const wrap = nearestWrapper(menu);
+      const hidden = wrap?.querySelector('input[type="hidden"]');
+      const btn = wrap?.querySelector(".custom-dropdown-trigger");
+      const labelEl = btn?.querySelector(".custom-dropdown-label");
+      const val = opt.getAttribute("data-value") ?? "";
+      const text = opt.textContent.trim();
+
+      if (hidden) hidden.value = val;          // ✅ 폼 전송용 값 보장
+      if (labelEl) labelEl.textContent = text; // ✅ 라벨 동기화
+      menu.classList.remove("is-open");
+    });
+
+    // 바깥 클릭 시 닫기
+    document.addEventListener("click", () => closeAll(document), { capture: true });
+  })();
+
+  // 2) 행 기본값 주입(시작학기 미기입 경고 방지, 복제 행 편의)
+  function programRowSetDefaults(row, { year, semesterValue, semesterLabel }) {
+    const sy = row.querySelector('input[name="enroll_start_year"]');
+    const ssSel = row.querySelector('select[name="enroll_start_semester"]');
+    if (sy && !String(sy.value || "").trim()) sy.value = String(year);
+    if (ssSel && !String(ssSel.value || "").trim()) ssSel.value = semesterValue;
+
+    // 버튼 라벨도 동기화
+    const startYearBtn = row.querySelector('.custom-dropdown-trigger[data-target^="enroll_start_year_menu_"]');
+    startYearBtn?.querySelector(".custom-dropdown-label")?.replaceChildren(document.createTextNode(String(year)));
+  }
+
+  // ========= (B) 초기 로딩 및 행 추가 바인딩 =========
+  initCustomDropdowns(document);
+  initProgramEnrollment(document, { requirementApi: REQUIRE_API });
+
+  // 첫 행 requirement 자동 로딩(값이 이미 있을 때)
+  document.querySelectorAll('.program-select').forEach(sel => {
+    if (sel.value) sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  function wireProgramRow(row) {
+    if (typeof initCustomDropdowns === "function") initCustomDropdowns(row);
+    const rm = row.querySelector(".btn-program-remove");
+    if (rm && !rm.dataset.bound) {
+      rm.dataset.bound = "1";
+      rm.addEventListener("click", () => row.remove());
     }
   }
 
   window.addEventListener("DOMContentLoaded", () => {
-    // 국적 기타 토글
-    document
-      .getElementById("nationality_select")
-      ?.addEventListener("change", syncNationality);
-    syncNationality();
-
-    // 이메일 도메인 기타 토글
-    document
-      .getElementById("email_other_domain_select")
-      ?.addEventListener("change", syncEmailDomain);
-    syncEmailDomain();
-
-    // 조건부 블록 (재직자 전형 / 휴학 이력)
-    document
-      .getElementById("admission_type")
-      ?.addEventListener("change", syncConditionalBlocks);
-    document
-      .getElementById("leave_of_absence")
-      ?.addEventListener("change", syncConditionalBlocks);
+    // 조건부 블록
+    document.getElementById("admission_type")?.addEventListener("change", syncConditionalBlocks);
+    document.getElementById("leave_of_absence")?.addEventListener("change", syncConditionalBlocks);
     syncConditionalBlocks();
 
-    // 휴학 이력 추가/삭제 기능
+    // 휴학 이력
     bindLeaveRows(CURRENT_YEAR);
 
-    // 커스텀 드롭다운 초기화
+    // 커스텀 드롭다운 전역
     initCustomDropdowns(document);
 
-    // 제출 전 유효성 검사
-    document
-      .querySelector("form.admin-form")
-      ?.addEventListener("submit", onFormSubmit);
+    // 국적/이메일
+    initNationalityInlineSwap(document);
+    const emailSel = document.getElementById("email_other_domain_select");
+    emailSel?.addEventListener("change", syncEmailDomain);
+    syncEmailDomain();
 
-    // 리셋 시 UI 상태 초기화
+    // 프로그램 등록(최초 행 바인딩 + 기본값 보정)
+    const container = document.getElementById("program_rows_container");
+    const firstRow  = container?.querySelector(".program-row");
+    if (firstRow) {
+      wireProgramRow(firstRow);
+      const sem0 = `{{ option_map['semester_simple'][0].value if option_map['semester_simple'] else '1학기' }}`;
+      const sem0Label = `{{ option_map['semester_simple'][0].label if option_map['semester_simple'] else '1학기' }}`;
+      programRowSetDefaults(firstRow, { year: CURRENT_YEAR, semesterValue: sem0, semesterLabel: sem0Label });
+    }
+
+    // 프로그램 추가 (+) 버튼
+    const addBtn = document.getElementById("btn_program_add");
+    if (container && addBtn && !addBtn.dataset.bound) {
+      addBtn.dataset.bound = "1";
+      addBtn.addEventListener("click", () => {
+        const tpl = container.querySelector(".program-row");
+        if (!tpl) return;
+        const idx = nextProgramIndex(container);
+        const row = tpl.cloneNode(true);
+        renumberProgramRowIds(row, idx);
+        resetProgramRowValues(row);
+
+        // 새 행 기본값
+        const sem0 = `{{ option_map['semester_simple'][0].value if option_map['semester_simple'] else '1학기' }}`;
+        const sem0Label = `{{ option_map['semester_simple'][0].label if option_map['semester_simple'] else '1학기' }}`;
+        programRowSetDefaults(row, { year: CURRENT_YEAR, semesterValue: sem0, semesterLabel: sem0Label });
+
+        container.appendChild(row);
+        wireProgramRow(row);
+
+        // req 목록 로딩을 위해 program select 변경 시 initProgramEnrollment가 먹도록
+        if (typeof initProgramEnrollment === "function") {
+          initProgramEnrollment(row, { requirementApi: REQUIRE_API });
+        }
+      });
+    }
+
+    // 제출 전 유효성
+    document.querySelector("form.admin-form")?.addEventListener("submit", onFormSubmit);
+
+    // 리셋
     const formEl = document.querySelector("form.admin-form");
     if (formEl) {
       formEl.addEventListener("reset", () => {
-        // reset 직후 브라우저가 기본값으로 돌리는 걸 기다렸다가 처리
         setTimeout(() => {
           resetFormStateToDefault(CURRENT_YEAR);
-          syncConditionalBlocks(); // 블록 표시/숨김 최종 싱크
+          syncConditionalBlocks();
         }, 0);
       });
     }

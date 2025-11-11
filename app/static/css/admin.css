@@ -341,6 +341,38 @@ body {
   min-width: 150px;
 }
 
+/* 휴학 이력 블록 전체 폰트 통일(이미 있더라도 유지) */
+.leave-history-row,
+.leave-history-row * {
+  font-family: inherit !important;
+}
+
+/* 브라우저가 select/option에 기본 폰트를 강제하는 것 방지 */
+#leave_rows_container select,
+#leave_rows_container option {
+  font: inherit !important;           /* font-family + size + weight 모두 상속 */
+  line-height: inherit !important;
+  color: inherit !important;
+}
+
+/* 일부 브라우저에서 기본 네이티브 스타일을 유지하면 폰트가 깨져 보임 → appearance 제거 */
+#leave_rows_container select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2.25rem;             /* 화살표 공간 */
+}
+
+/* 구형 IE/Edge 전용 화살표 제거 */
+#leave_rows_container select::-ms-expand {
+  display: none;
+}
+
+/* 버튼류도 동일 폰트로 고정 */
+#leave_rows_container button {
+  font: inherit !important;
+}
+
 /* 삭제 버튼 스타일을 좀 더 pill 느낌으로 */
 .btn-leave-remove {
   background: #fff5f5;
@@ -500,9 +532,10 @@ body {
   display: none;
   z-index: 1000;
 }
-.custom-dropdown-menu.active {
+.custom-dropdown-menu.is-open { display: block; }
+/* .custom-dropdown-menu.active {
   display: block;
-}
+} */
 .custom-dropdown-option {
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
@@ -717,4 +750,118 @@ select.input-control {
   outline: 2px solid rgba(37, 99, 235, 0.2); /* #2563eb33 느낌 */
   border-color: #2563eb;  /* 학번 필드 포커스 때처럼 파란 하이라이트 */
   background-color: #fff;
+}
+
+
+/* ===== Non-breaking Consolidation (keep behavior, dedupe safely) ===== */
+
+/* 입력 계열 통합 */
+.input-control,
+.field input,
+.field select,
+textarea.input-control {
+  width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--snu-gray);
+  border: 1px solid var(--snu-border);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  transition: border-color .2s, box-shadow .2s;
+  box-sizing: border-box;
+}
+.input-control:focus,
+.field input:focus,
+.field select:focus,
+textarea.input-control:focus {
+  outline: none;
+  border-color: var(--snu-accent);
+  box-shadow: 0 0 0 3px rgba(0,82,255,.2);
+}
+
+/* 버튼 계열 통합 */
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-ghost-add,
+.btn-ghost-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.btn-primary { background: var(--snu-accent); color:#fff; box-shadow: 0 8px 24px rgba(0,82,255,.28); }
+.btn-primary:hover { filter: brightness(0.93); }
+.btn-secondary { background:#f8f8f8; color:#333; border-color:#ccc; }
+.btn-ghost-add { background:#ecfdf5; border:1px solid #6ee7b7; color:#065f46; }
+.btn-ghost-danger { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
+
+/* 큰 섹션/작은 카드(역할 유지, 중복 제거) */
+.section-card {
+  background:#fff; border:1px solid rgba(0,0,0,.06);
+  border-radius: 1rem; padding: 1.5rem 1.5rem 2rem;
+  margin-bottom: 2rem; box-shadow: 0 4px 24px rgba(0,0,0,.03);
+}
+.subsection-card {
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+/* 휴학 이력 블록 */
+.leave-block-shell {
+  background: #f9fafb;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: .75rem;
+  padding: 1rem;
+  margin: .75rem 0 1rem;
+}
+.leave-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.6rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.leave-history-row .inline-mini { flex: 0 0 auto; min-width: 150px; }
+
+/* 인라인 유틸 */
+.inline-pair { display:flex; flex-wrap:nowrap; gap:.75rem; align-items:flex-start; }
+.inline-field { flex:0 0 auto; min-width:140px; }
+.inline-field .custom-dropdown-wrapper,
+.inline-field select.input-control { min-width:140px; width:140px; max-width:140px; flex-shrink:0; }
+
+/* 커스텀 드롭다운 공통값 */
+.custom-dropdown-menu { max-height: 14rem; overflow-y: auto; }
+.custom-dropdown-trigger { font-size: 0.9rem; padding: 0.6rem 0.75rem; }
+.custom-dropdown-option { padding: 0.5rem 0.75rem; }
+
+.inline-pair.wrap { flex-wrap: wrap; }            /* 작은 화면 줄바꿈 허용 */
+.inline-field.grow { flex: 1 1 280px; min-width: 220px; }
+
+#nationality_select {
+  min-width: 180px;  /* 혹은 160~180 조절 */
+}
+
+#program_rows_container .program-row {
+  border: 1px solid var(--line-soft, #dedede);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fafafa;
 }

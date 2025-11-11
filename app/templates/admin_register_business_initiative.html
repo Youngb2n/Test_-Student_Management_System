@@ -3,11 +3,21 @@
 {% block title %}사업단 주관사업 등록{% endblock %}
 
 {% block content %}
-
+{% if request.query_params.get("success") %}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    alert("사업단 주관사업 등록이 완료되었습니다.");
+    history.replaceState(null, "", window.location.pathname);
+  });
+</script>
+{% endif %}
 {% from "partials/_section_card.html" import section_card %}
 
 <form class="admin-form" method="post" action="/admin/register/business">
-
+  {% set is_edit = (edit_id is not none) and (edit_obj is not none) %}
+  {% if is_edit %}
+    <input type="hidden" name="edit_id" value="{{ edit_obj.id }}">
+  {% endif %}
   {# ───────── 사업 기본 정보 ───────── #}
   {% call section_card("사업 기본 정보", 1) %}
     <div class="section-card__inner">
@@ -182,14 +192,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   start.addEventListener("change", validateDates);
   end.addEventListener("change", validateDates);
-
-  // ---- (2) 등록 성공 시 alert 띄우기 (학생 등록과 동일 패턴) ----
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("success") === "1") {
-    alert("사업단 주관사업이 성공적으로 등록되었습니다.");
-    // 새로고침 시 또 안 뜨게 쿼리스트링 제거
-    history.replaceState(null, "", window.location.pathname);
-  }
 });
 </script>
 {% endblock %}

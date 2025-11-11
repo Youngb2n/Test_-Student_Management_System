@@ -23,8 +23,29 @@ function toggleSection(headerEl) {
 
 // ===== 입학년도 2000~2100 옵션 생성 =====
 function fillAdmissionYears() {
+  // 1) 커스텀 드롭다운 구조 (권장: 현재 사용 중)
+  const menu = document.getElementById('admission_year_dropdown');
+  if (menu) {
+    // 이미 옵션이 채워졌으면 스킵
+    if (menu.querySelector('.custom-dropdown-option')) return;
+
+    const frag = document.createDocumentFragment();
+    for (let y = 2000; y <= 2100; y++) {
+      const div = document.createElement('div');
+      div.className = 'custom-dropdown-option';
+      div.setAttribute('data-value', String(y));
+      div.textContent = String(y);
+      frag.appendChild(div);
+    }
+    menu.appendChild(frag);
+    return; // 커스텀 경로로 끝
+  }
+
+  // 2) 레거시 <select id="admission_year"> 지원
   const sel = document.getElementById('admission_year');
-  if (!sel || sel.options.length > 1) return; // 이미 채워졌으면 패스
+  if (!sel || sel.tagName !== 'SELECT') return;
+
+  if (sel.options && sel.options.length > 1) return;
   for (let y = 2000; y <= 2100; y++) {
     const opt = document.createElement('option');
     opt.value = String(y);

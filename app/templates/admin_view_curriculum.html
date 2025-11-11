@@ -4,97 +4,526 @@
 {% block content %}
 <section class="section-card">
   <header class="section-card__header">
-    <h1 class="section-card__title">교육과정 목록</h1>
+    <h1 class="section-card__title">교육과정 조회</h1>
+    <p class="section-card__desc">
+      행의 “상세” 버튼을 눌러 개요와 학생 이수 현황, 이수조건, 매핑(교과/비교과) 정보를 확인하세요.
+    </p>
   </header>
 
-  <div class="section-card__inner">
-    {% if curricula|length == 0 %}
-      <p>등록된 교육과정이 없습니다.</p>
-    {% else %}
-      {% for cur in curricula %}
-      <div class="subsection-card" style="margin-bottom:1rem;">
-        <div class="form-row">
-          <div class="field flex-1">
-            <div class="field-label">과정명</div>
-            <div>{{ cur.course_name }}</div>
-          </div>
-          <div class="field flex-1">
-            <div class="field-label">유형</div>
-            <div>{{ cur.program_type }}</div>
-          </div>
-          <div class="field flex-1">
-            <div class="field-label">학위 구분</div>
-            <div>{{ cur.degree_type }}</div>
-          </div>
-          <div class="field flex-1">
-            <div class="field-label">학과 구분</div>
-            <div>{{ cur.department_type }}</div>
-          </div>
-        </div>
+  <!-- 상단 툴바 -->
+  <div class="toolbar" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+    <button id="btn-refresh" class="btn">새로고침</button>
+    <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+      <label class="text-dim" for="page-size">페이지 당</label>
+      <select id="page-size" class="field-input" style="width:100px;">
+        <option>10</option><option selected>20</option><option>50</option><option>100</option>
+      </select>
+    </div>
+  </div>
 
-        <div class="form-row">
-          <div class="field flex-1">
-            <div class="field-label">개설</div>
-            <div>
-              {{ cur.open_year or "미입력" }}
-              {{ cur.open_semester or "" }}
-            </div>
-          </div>
-          <div class="field flex-1">
-            <div class="field-label">폐지</div>
-            <div>
-              {{ cur.close_year or "미입력" }}
-              {{ cur.close_semester or "" }}
-            </div>
-          </div>
-          <div class="field flex-1">
-            <div class="field-label">사업단</div>
-            <div>{{ cur.business_initiative_id or "-" }}</div>
-          </div>
-        </div>
+  <!-- 메인 테이블 -->
+  <div id="cur-table"></div>
+</section>
 
-        <hr style="margin:1rem 0; border:0; border-top:1px solid #e2e8f0;" />
+<!-- 상세 모달 -->
+<div id="cur-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60;">
+  <div class="modal-panel" style="position:absolute; top:6vh; left:50%; transform:translateX(-50%); width:min(1080px, 95vw); background:#fff; border-radius:14px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <!-- 헤더 -->
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div>
+        <div id="cur-title" style="font-size:1.1rem; font-weight:700;">과정명</div>
+        <div id="cur-subtitle" class="text-dim" style="font-size:.9rem;"></div>
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button id="btn-export-students" class="btn small">학생 현황 CSV</button>
+        <button id="btn-cur-close" class="btn">닫기</button>
+      </div>
+    </div>
 
-        <div class="form-row">
-          <div class="field flex-1">
-            <div class="field-label">이수조건(Program Requirement)</div>
-
-            {% set reqs = req_map.get(cur.id, []) %}
-            {% if reqs|length == 0 %}
-              <div class="field-hint-block">등록된 이수조건 없음</div>
-            {% else %}
-              <ul style="padding-left:1rem; margin:0;">
-                {% for r in reqs %}
-                <li style="margin-bottom:.5rem;">
-                  <div>
-                    <strong>적용 범위:</strong>
-                    {{ r.college_scope }} / {{ r.degree_scope }}
-                  </div>
-                  <div>
-                    <strong>필요 학점:</strong>
-                    교과 {{ r.required_credit }}학점 · 비교과 {{ r.total_converted_required }}점 · 인턴십 {{ r.total_internship_required }}점
-                  </div>
-                  <div>
-                    <strong>최소 활동:</strong>
-                    AI.MED talks {{ r.min_ai_med_talks }}회 /
-                    기업견학 {{ r.min_company_visit }}회 /
-                    병원견학 {{ r.min_hospital_visit }}회 /
-                    세미나 {{ r.min_seminar }}회 /
-                    교류회 {{ r.min_exchange_forum }}회 /
-                    박람회 {{ r.min_expo }}회 /
-                    학회 {{ r.min_academic_conf }}회 /
-                    경진대회 {{ r.min_competition }}회 /
-                    기타 {{ r.min_etc }}회
-                  </div>
-                </li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          </div>
+    <div class="modal-body" style="padding:12px 16px 16px;">
+      <!-- 개요 카드 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:12px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">개요</div>
+        <div id="cur-overview" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;">
+          <!-- JS 채움 -->
         </div>
       </div>
-      {% endfor %}
-    {% endif %}
+
+      <!-- 서브탭 -->
+      <div class="subtabs" style="display:flex; gap:.5rem; margin:8px 0 10px;">
+        <button data-tab="students" class="btn primary outline small">학생 이수 현황</button>
+        <button data-tab="requirements" class="btn outline small">이수조건</button>
+        <button data-tab="courses" class="btn outline small">매핑된 교과목</button>
+        <button data-tab="programs" class="btn outline small">매핑된 비교과</button>
+      </div>
+
+      <!-- 탭 패널들 -->
+      <div id="tab-students" class="tab-panel">
+        <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem;">
+          <label class="text-dim">페이지 당</label>
+          <select id="students-page-size" class="field-input" style="width:90px;">
+            <option>10</option><option selected>20</option><option>50</option><option>100</option>
+          </select>
+        </div>
+        <div id="students-table"></div>
+      </div>
+
+      <div id="tab-requirements" class="tab-panel" style="display:none;">
+        <div id="req-table"></div>
+      </div>
+
+      <div id="tab-courses" class="tab-panel" style="display:none;">
+        <div id="courses-map-table"></div>
+      </div>
+
+      <div id="tab-programs" class="tab-panel" style="display:none;">
+        <div id="programs-map-table"></div>
+      </div>
+    </div>
   </div>
-</section>
+</div>
+
+<!-- Tabulator CDN -->
+<link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css">
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 상태
+  const PAGE_SIZE_SELECT = document.getElementById('page-size');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+
+  // 모달
+  const MODAL = document.getElementById('cur-modal');
+  const BTN_CLOSE = document.getElementById('btn-cur-close');
+  const BTN_EXPORT = document.getElementById('btn-export-students');
+  const TITLE = document.getElementById('cur-title');
+  const SUBTITLE = document.getElementById('cur-subtitle');
+  const OV = document.getElementById('cur-overview');
+
+  // 탭
+  const subtabs = Array.from(document.querySelectorAll('.subtabs .btn'));
+  const tabPanels = {
+    students: document.getElementById('tab-students'),
+    requirements: document.getElementById('tab-requirements'),
+    courses: document.getElementById('tab-courses'),
+    programs: document.getElementById('tab-programs'),
+  };
+
+  // 테이블 핸들
+  let curTable = null;
+  let studentsTable = null;
+  let reqTable = null;
+  let coursesMapTable = null;
+  let programsMapTable = null;
+
+  // 현재 curriculum id
+  let currentCurId = null;
+
+  // 캐시: 필수과목 집합 / 학생 수강과목
+  const REQUIRED_MAP = new Map();    // curId -> Set(course_code)
+  const STUDENT_COURSES = new Map(); // student_id -> Set(course_code)
+
+  // 숫자 포맷
+  function fmtNum(n){
+    const x = Number(n ?? 0);
+    if (!Number.isFinite(x)) return "0";
+    return Number.isInteger(x) ? String(x) : x.toFixed(3).replace(/\.?0+$/,'');
+  }
+
+  // 카테고리 라벨과 우선순서 (비교과 최소횟수 고정 9종)
+  const CATEGORY_LABELS = {
+    min_ai_med_talks:"Talks",
+    min_exchange_forum:"성과교류회",
+    min_seminar:"세미나",
+    min_hospital_visit:"병원",
+    min_company_visit:"회사",
+    min_academic_conf:"학회",
+    min_expo:"박람회",
+    min_competition:"경진대회",
+    min_etc:"기타",
+  };
+  const CATEGORY_ORDER = [
+    "min_ai_med_talks","min_exchange_forum","min_seminar",
+    "min_hospital_visit","min_company_visit","min_academic_conf",
+    "min_expo","min_competition","min_etc",
+  ];
+
+  // 메인(교육과정 목록)
+  function actionFormatter(cell){
+    const row = cell.getRow().getData();
+    return `<button class="btn small" data-cur-detail="${row.id}">상세</button>`;
+  }
+
+  curTable = new Tabulator("#cur-table", {
+    height: 560,
+    layout: "fitDataStretch",
+    pagination: true,
+    paginationMode: "remote",
+    paginationSize: Number(PAGE_SIZE_SELECT.value || 20),
+    ajaxURL: "/api/tabulator/curriculum",
+    ajaxConfig: "POST",
+    ajaxContentType: "form",
+    columns: [
+      { title:"액션", field:"id", width:110, hozAlign:"center", formatter:actionFormatter, headerSort:false },
+      { title:"유형", field:"program_type", headerFilter:"input" },
+      { title:"과정명", field:"course_name", headerFilter:"input" },
+      { title:"학위/학과", field:"degree_department", headerFilter:"input" },
+      { title:"개설", field:"open", hozAlign:"center", headerFilter:"input" },
+      { title:"폐지", field:"close", hozAlign:"center", headerFilter:"input" },
+      { title:"소속사업", field:"business_name", headerFilter:"input" },
+      { title:"학생수", field:"student_count", hozAlign:"right", headerFilter:"number" },
+      { title:"비교과매핑", field:"program_count", hozAlign:"right", headerFilter:"number" },
+      { title:"수정일", field:"updated_at", headerFilter:"input" },
+    ],
+    rowFormatter(row){
+      const el = row.getElement();
+      el.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-cur-detail]');
+        if (btn){
+          openDetail(Number(btn.getAttribute('data-cur-detail')));
+        }
+      });
+    },
+    paginationCounter: "rows",
+  });
+
+  PAGE_SIZE_SELECT.addEventListener('change', () => {
+    curTable.setPageSize(Number(PAGE_SIZE_SELECT.value || 20));
+    curTable.setPage(1);
+  });
+  BTN_REFRESH.addEventListener('click', () => curTable.replaceData());
+
+  // 상세 모달
+  async function openDetail(curId){
+    currentCurId = curId;
+    MODAL.style.display = 'block';
+    setActiveTab('students');
+    await loadOverview(curId);
+    ensureStudentsTable(curId, true);
+    ensureReqTable(curId, true);
+    ensureCoursesMapTable(curId, false);
+    ensureProgramsMapTable(curId, false);
+  }
+
+  BTN_CLOSE.addEventListener('click', () => { MODAL.style.display = 'none'; });
+
+  BTN_EXPORT.addEventListener('click', () => {
+    if (!currentCurId) return;
+    window.location.href = `/api/tabulator/curriculum/${encodeURIComponent(currentCurId)}/students/export`;
+  });
+
+  // 개요
+  async function loadOverview(curId){
+    OV.innerHTML = `<div class="text-dim">로딩 중…</div>`;
+    try{
+      const res = await fetch(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/overview`);
+      const j = await res.json();
+      if (!j.ok || !j.data) throw new Error('!ok');
+      const d = j.data;
+
+      TITLE.textContent = d.course_name || '(무제)';
+      SUBTITLE.textContent = [
+        d.program_type || '',
+        (d.open_year ? `${d.open_year} ${d.open_semester||''}`.trim() : ''),
+        (d.degree_type ? `${d.degree_type}/${d.department_type||''}`.replace(/\/\s*$/,'') : '')
+      ].filter(Boolean).join(' • ');
+
+      OV.innerHTML = `
+        <div>유형: <b>${d.program_type || '-'}</b></div>
+        <div>과정명: <b>${d.course_name || '-'}</b></div>
+        <div>학위/학과: <b>${(d.degree_type||'-')}/${(d.department_type||'-')}</b></div>
+        <div>개설: <b>${d.open_year || '-'} ${d.open_semester || ''}</b></div>
+        <div>폐지: <b>${d.close_year || '-'} ${d.close_semester || ''}</b></div>
+        <div>소속 사업: <b>${d.business_name || '-'}</b></div>
+        <div>학생수: <b>${d.student_count ?? 0}</b></div>
+        <div>비교과 매핑 수: <b>${d.program_count ?? 0}</b></div>
+        <div style="grid-column:1/-1;">수정일: <b>${d.updated_at || '-'}</b></div>
+      `;
+    }catch(err){
+      console.error('[curriculum] overview error', err);
+      OV.innerHTML = `<div style="color:#b91c1c;">개요 로드 중 오류가 발생했습니다.</div>`;
+    }
+  }
+
+  // 탭 전환
+  function setActiveTab(name){
+    subtabs.forEach(b => {
+      const key = b.getAttribute('data-tab');
+      if (key === name){ b.classList.remove('outline'); b.classList.add('primary'); }
+      else { b.classList.add('outline'); b.classList.remove('primary'); }
+    });
+    Object.entries(tabPanels).forEach(([k, el]) => el.style.display = (k===name ? '' : 'none'));
+  }
+  subtabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-tab');
+      setActiveTab(key);
+      if (!currentCurId) return;
+      if (key === 'students') ensureStudentsTable(currentCurId, false);
+      else if (key === 'requirements') ensureReqTable(currentCurId, false);
+      else if (key === 'courses') ensureCoursesMapTable(currentCurId, false);
+      else if (key === 'programs') ensureProgramsMapTable(currentCurId, false);
+    });
+  });
+
+  // ===== 유틸: 필수과목/학생과목 로드 & 캐시 =====
+  async function getRequiredCourseSet(curId){
+    if (REQUIRED_MAP.has(curId)) return REQUIRED_MAP.get(curId);
+    // 백엔드: 해당 커리큘럼의 매핑 교과목 목록(필수 여부 포함)
+    const url = `/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/courses`;
+    const r = await fetch(url, {method:"POST"});
+    const j = await r.json();
+    const data = Array.isArray(j?.data) ? j.data : [];
+    const set = new Set(
+      data.filter(x => String(x.required_flag||'').includes('필수'))
+          .map(x => String(x.course_code||'').trim())
+          .filter(Boolean)
+    );
+    REQUIRED_MAP.set(curId, set);
+    return set;
+  }
+  async function getStudentCourseSet(studentId){
+    if (STUDENT_COURSES.has(studentId)) return STUDENT_COURSES.get(studentId);
+    // 백엔드: 학생이 수강/이수한 교과목 코드 목록
+    // 기본 경로: /api/student/{sid}/courses  (배열 [{course_code,...}])
+    // 만약 없다면 대체로 /api/tabulator/student/{sid}/courses 등 네가 쓰는 엔드포인트로 교체
+    const r = await fetch(`/api/student/${encodeURIComponent(studentId)}/courses`);
+    const j = await r.json();
+    const list = Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : []);
+    const set = new Set(list.map(x => String(x.course_code||'').trim()).filter(Boolean));
+    STUDENT_COURSES.set(studentId, set);
+    return set;
+  }
+  async function computeRequiredCoreDoneForRows(curId, rows){
+    const requiredSet = await getRequiredCourseSet(curId);
+    // 필수 과목이 없다면 모두 충족(true)
+    if (!requiredSet.size){
+      const updates = rows.map(r => ({ student_id: r.student_id, required_core_done: true }));
+      if (updates.length) studentsTable.updateData(updates);
+      return;
+    }
+    const updates = [];
+    for (const r of rows){
+      const sid = r.student_id;
+      const taken = await getStudentCourseSet(sid);
+      let ok = true;
+      for (const code of requiredSet){
+        if (!taken.has(code)){ ok = false; break; }
+      }
+      updates.push({ student_id: sid, required_core_done: ok });
+    }
+    if (updates.length) studentsTable.updateData(updates);
+  }
+
+  // ===== 학생 이수현황 (획득/최소 + 필수교과 이수) =====
+  function ensureStudentsTable(curId, forceReload){
+    // 커리큘럼이 바뀌면 카테고리 칼럼 리셋
+    if (studentsTable && studentsTable.__cur_id !== curId){
+      studentsTable.__cat_cols_added = false;
+    }
+
+    const sizeSel = document.getElementById('students-page-size');
+    let CUR_REQ = null; // { credit, extrac_converted, categories:{min_*} }
+
+    // 비교과 카테고리 셀 생성기: "획득/최소" 표시
+    const asCountCell = (fieldKey) => ({
+      title: (CATEGORY_LABELS[fieldKey] || fieldKey.replace(/^min_/,'').replace(/_/g,'/')),
+      field: fieldKey,
+      hozAlign:"right",
+      width:110,
+      formatter:(cell)=>{
+        const got = Number(cell.getValue() ?? 0);
+        const need = Number(CUR_REQ?.categories?.[fieldKey] ?? 0);
+        return `${fmtNum(got)} / ${fmtNum(need)}`;
+      },
+      mutator:(v)=> Number.isFinite(+v)?+v:0,
+    });
+
+    // 기본 칼럼
+    const baseCols = [
+      { title:"학번", field:"student_no", headerFilter:"input", width:120 },
+      { title:"이름", field:"name", headerFilter:"input", width:120 },
+      { title:"상태", field:"status", hozAlign:"center", width:110 },
+      { title:"시작연도", field:"joined_year", hozAlign:"center", width:120 },
+      { title:"시작학기", field:"joined_term", hozAlign:"center", width:120 },
+      { title:"종료연도", field:"completed_year", hozAlign:"center", width:120 },
+      { title:"종료학기", field:"completed_term", hozAlign:"center", width:120 },
+
+      { title:"요건코드", field:"requirement_code", headerFilter:"input", width:130 },
+      {
+        title:"교과학점", field:"course_total_credit", hozAlign:"right", width:130,
+        formatter:(cell)=> `${fmtNum(cell.getValue())} / ${fmtNum(CUR_REQ?.credit ?? 0)}`
+      },
+      {
+        title:"비교과환산", field:"extrac_converted_total", hozAlign:"right", width:140,
+        formatter:(cell)=> `${fmtNum(cell.getValue())} / ${fmtNum(CUR_REQ?.extrac_converted ?? 0)}`
+      },
+    ];
+
+    // “비교과 유형별 최소 횟수” 9개 컬럼을 항상 추가
+    const catCols = CATEGORY_ORDER.map(k => asCountCell(k));
+
+    // 통과 지표 + 필수 교과목 이수 여부
+    const passCols = [
+      { title:"학점충족", field:"pass_credit",    formatter:"tickCross", hozAlign:"center", width:90 },
+      { title:"환산충족", field:"pass_converted", formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"최소충족", field:"pass_minimum",   formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"필수교과충족", field:"required_core_done", formatter:"tickCross", hozAlign:"center", width:95 },
+      { title:"이수요건충족", field:"pass_all",       formatter:"tickCross", hozAlign:"center", width:95 },
+    ];
+
+    // 응답 후 훅: requirements 저장 + (최초 1회) catCols 부착
+    const ajaxResponseHook = (url, params, resp) => {
+      CUR_REQ = resp?.requirements || null;
+
+      if (!studentsTable.__cat_cols_added){
+        studentsTable.addColumn(catCols, false); // 데이터에 min_* 없어도 항상 보이게
+        studentsTable.__cat_cols_added = true;
+      }
+      return resp;
+    };
+
+    // 페이지 로드될 때 필수 교과목 자동 체크
+    const onPageLoaded = async () => {
+      try{
+        const rows = studentsTable.getData();               // 현재 페이지 데이터
+        await computeRequiredCoreDoneForRows(curId, rows);  // 필수셋 ⊆ 학생수강
+      }catch(e){
+        console.warn("[students] required_core_done compute error:", e);
+      }
+    };
+
+    if (!studentsTable){
+      studentsTable = new Tabulator("#students-table", {
+        height: 420,
+        layout: "fitDataStretch",
+        pagination: true,
+        paginationMode: "remote",
+        paginationSize: Number(sizeSel.value || 20),
+        ajaxURL: `/api/tabulator/curriculum/${encodeURIComponent(curId)}/students`,
+        ajaxConfig: "POST",
+        ajaxContentType: "form",
+        columns: [...baseCols, ...catCols, ...passCols],
+        ajaxResponse: ajaxResponseHook,
+      });
+
+      studentsTable.__cur_id = curId;
+      studentsTable.on("pageLoaded", onPageLoaded);
+
+      // 페이지 사이즈 변경
+      sizeSel.addEventListener('change', () => {
+        studentsTable.setPageSize(Number(sizeSel.value || 20));
+        studentsTable.replaceData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/students`, {}, "POST")
+          .then(()=> onPageLoaded());
+      });
+    } else {
+      studentsTable.__cur_id = curId;
+
+      if (forceReload){
+        studentsTable.__cat_cols_added = false;
+        studentsTable.setColumns([...baseCols, ...catCols, ...passCols]);
+        studentsTable.replaceData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/students`, {}, "POST")
+          .then(()=> onPageLoaded());
+      } else {
+        studentsTable.setData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/students`, {}, "POST")
+          .then(()=> onPageLoaded());
+      }
+    }
+  }
+
+  // ===== 이수조건 (정적 스펙) =====
+  function ensureReqTable(curId, forceReload){
+    if (reqTable){
+      if (forceReload){
+        reqTable.setData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/requirements`, {}, "POST");
+      }
+      return;
+    }
+
+    const headCols = [
+      { title:"요건코드", field:"requirement_code", headerFilter:"input", width:160 },
+      { title:"적용(대학)", field:"college_scope", width:120, headerFilter:"input" },
+      { title:"적용(학위)", field:"degree_scope", width:120, headerFilter:"input" },
+    ];
+
+    const reqCols = [
+      { title:"교과 최소학점", field:"required_credit", hozAlign:"right", headerFilter:"number", width:130,
+        mutator:(v,d)=> Number.isFinite(+v)?+v:(Number.isFinite(+d.credit)?+d.credit:0) },
+      { title:"비교과 환산최소", field:"total_converted_required", hozAlign:"right", headerFilter:"number", width:140,
+        mutator:(v,d)=> Number.isFinite(+v)?+v:(Number.isFinite(+d.extrac_converted)?+d.extrac_converted:0) },
+      { title:"인턴 환산최소", field:"total_internship_required", hozAlign:"right", headerFilter:"number", width:130,
+        mutator:(v)=> Number.isFinite(+v)?+v:0 },
+    ];
+
+    const catCols = CATEGORY_ORDER.map(k => ({
+      title: CATEGORY_LABELS[k],
+      field: k, hozAlign:"right", headerFilter:"number", width:110,
+      mutator:(v)=> Number.isFinite(+v)?+v:0
+    }));
+
+    reqTable = new Tabulator("#req-table", {
+      height: 360,
+      layout: "fitDataStretch",
+      pagination: true,
+      paginationMode: "remote",
+      paginationSize: 50,
+      ajaxURL: `/api/tabulator/curriculum/${encodeURIComponent(curId)}/requirements`,
+      ajaxConfig: "POST",
+      ajaxContentType: "form",
+      columns: [...headCols, ...reqCols, ...catCols],
+    });
+  }
+
+  // ===== 매핑(교과목) =====
+  function ensureCoursesMapTable(curId, forceReload){
+    if (!coursesMapTable){
+      coursesMapTable = new Tabulator("#courses-map-table", {
+        height: 360,
+        layout: "fitDataStretch",
+        pagination: true,
+        paginationMode: "remote",
+        paginationSize: 100,
+        ajaxURL: `/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/courses`,
+        ajaxConfig: "POST",
+        ajaxContentType: "form",
+        columns: [
+          { title:"코드", field:"course_code", headerFilter:"input", width:120 },
+          { title:"과목명", field:"course_name", headerFilter:"input" },
+          { title:"필수여부", field:"required_flag", hozAlign:"center", width:100 },
+          { title:"최초인정", field:"initial", hozAlign:"center", width:120 },
+          { title:"최종인정", field:"final", hozAlign:"center", width:120 },
+          { title:"학점", field:"credit", hozAlign:"right", width:80 },
+          { title:"개설학기", field:"offering_semester", hozAlign:"center", width:110 },
+        ],
+      });
+    } else if (forceReload){
+      coursesMapTable.setData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/courses`, {}, "POST");
+    }
+  }
+
+  // ===== 매핑(비교과) =====
+  function ensureProgramsMapTable(curId, forceReload){
+    if (!programsMapTable){
+      programsMapTable = new Tabulator("#programs-map-table", {
+        height: 360,
+        layout: "fitDataStretch",
+        pagination: true,
+        paginationMode: "remote",
+        paginationSize: 100,
+        ajaxURL: `/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/extracurricular`,
+        ajaxConfig: "POST",
+        ajaxContentType: "form",
+        columns: [
+          { title:"프로그램명", field:"program_name", headerFilter:"input" },
+          { title:"분류", field:"category", headerFilter:"input", width:160 },
+          { title:"환산비율", field:"recognized_credit_ratio", hozAlign:"right", headerFilter:"number", width:120 },
+        ],
+      });
+    } else if (forceReload){
+      programsMapTable.setData(`/api/tabulator/curriculum/${encodeURIComponent(curId)}/mappings/extracurricular`, {}, "POST");
+    }
+  }
+});
+</script>
 {% endblock %}

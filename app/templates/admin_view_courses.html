@@ -1,0 +1,373 @@
+{% extends "admin_base.html" %}
+{% block title %}교과목 조회{% endblock %}
+
+{% block content %}
+<section class="section-card">
+  <header class="section-card__header">
+    <h1 class="section-card__title">교과목 조회</h1>
+    <p class="section-card__desc">행의 [상세] 버튼을 누르면 개요·수강 학생·교육과정 매핑을 확인/관리할 수 있습니다.</p>
+  </header>
+
+  <!-- 상단 툴바 -->
+  <div class="toolbar" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.75rem;">
+    <button id="btn-refresh" class="btn">새로고침</button>
+    <div style="margin-left:auto; display:flex; gap:.5rem; align-items:center;">
+      <label class="text-dim" for="page-size">페이지 당</label>
+      <select id="page-size" class="field-input" style="width:100px;">
+        <option>10</option><option selected>20</option><option>50</option><option>100</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="courses-table"></div>
+  <div class="text-dim" style="margin-top:.5rem;">각 행의 [상세] 또는 [수정] 버튼을 사용하세요.</div>
+</section>
+
+<!-- 상세 모달 (유일) -->
+<div id="course-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60;">
+  <div class="modal-panel" style="position:absolute; top:6vh; left:50%; transform:translateX(-50%); width:min(980px, 92vw); background:#fff; border-radius:14px; box-shadow:0 24px 48px rgba(0,0,0,.18);">
+    <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb;">
+      <div>
+        <div id="course-title" style="font-size:1.1rem; font-weight:700;">과목</div>
+        <div id="course-subtitle" class="text-dim" style="font-size:.9rem;"></div>
+      </div>
+      <div style="display:flex; gap:.5rem;">
+        <button id="btn-edit-course" class="btn">수정</button>
+        <button id="btn-close" class="btn">닫기</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="padding:12px 16px 16px;">
+      <!-- 코스 개요 -->
+      <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+        <div class="text-dim" style="font-weight:600; margin-bottom:6px;">코스 개요</div>
+        <div id="course-overview" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; font-size:.95rem; line-height:1.6;">
+          <!-- JS로 채움 -->
+        </div>
+      </div>
+
+      <!-- TAB 버튼 -->
+      <div style="display:flex; gap:.5rem; margin:8px 0 12px;">
+        <button type="button" id="tab-students" class="btn small primary">수강 학생</button>
+        <button type="button" id="tab-curricula" class="btn small">교육과정 매핑</button>
+      </div>
+
+      <!-- TAB: 수강 학생 -->
+      <div id="tab-content-students">
+        <!-- 학생 추가 -->
+        <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+          <div class="text-dim" style="font-weight:600; margin-bottom:6px;">수강 학생 추가</div>
+          <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+            <input id="student-search" class="field-input" placeholder="이름 또는 학번으로 검색" style="min-width:280px;">
+            <div id="student-suggest" style="position:relative;"></div>
+            <button id="btn-add" class="btn">추가</button>
+          </div>
+          <div class="text-dim" style="margin-top:6px;">검색 후 제안 목록에서 선택한 뒤 ‘추가’를 누르세요.</div>
+        </div>
+        <!-- 수강 학생 표 -->
+        <div id="enrolled-table"></div>
+      </div>
+
+      <!-- TAB: 교육과정 매핑 (조회만) -->
+      <div id="tab-content-curricula" style="display:none;">
+        <div class="card" style="border:1px solid #e5e7eb; border-radius:12px; padding:12px; margin-bottom:10px;">
+          <div class="text-dim" style="font-weight:600; margin-bottom:6px;">교육과정 매핑 (조회)</div>
+          <div id="curricula-table"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ========= 요소 =========
+  const PAGE_SIZE_SELECT = document.getElementById('page-size');
+  const BTN_REFRESH = document.getElementById('btn-refresh');
+
+  const MODAL = document.getElementById('course-modal');
+  const BTN_CLOSE = document.getElementById('btn-close');
+  const BTN_EDIT_COURSE = document.getElementById('btn-edit-course');
+  const TITLE = document.getElementById('course-title');
+  const SUBTITLE = document.getElementById('course-subtitle');
+  const OV = document.getElementById('course-overview');
+
+  // 탭
+  const TAB_STD = document.getElementById('tab-students');
+  const TAB_CUR = document.getElementById('tab-curricula');
+  const TAB_STD_CONT = document.getElementById('tab-content-students');
+  const TAB_CUR_CONT = document.getElementById('tab-content-curricula');
+
+  // 학생 자동완성
+  const INPUT = document.getElementById('student-search');
+  const SUGGEST = document.getElementById('student-suggest');
+  const BTN_ADD = document.getElementById('btn-add');
+
+  // 상태
+  let currentCourse = { code: null };
+  let selectedStudentId = null;
+  let acTimer = null;
+
+  // ========= 코스 테이블 =========
+  const courseTable = new Tabulator("#courses-table", {
+    height: 560,
+    layout: "fitDataStretch",
+    pagination: true,
+    paginationMode: "remote",
+    paginationSize: Number(PAGE_SIZE_SELECT.value || 20),
+    ajaxURL: "/api/tabulator/courses",
+    ajaxConfig: "POST",
+    ajaxContentType: "form",
+    columns: [
+      {
+        title:"액션", field:"course_code", width:160, hozAlign:"center",
+        formatter:(cell)=>{
+          const code = cell.getValue();
+          const codeEsc = encodeURIComponent(code);
+          return `
+            <button class="btn small" onclick="openCourse({course_code:'${code.replace(/'/g,"\\'")}'})">상세</button>
+            <button class="btn small" onclick="location.href='/admin/register/course?edit=${codeEsc}'">수정</button>
+          `;
+        }
+      },
+      { title:"과목코드", field:"course_code", headerFilter:"input" },
+      { title:"교과목명(국문)", field:"course_name_ko", headerFilter:"input" },
+      { title:"교과목명(영문)", field:"course_name_en", headerFilter:"input" },
+      { title:"과정", field:"degree_level", headerFilter:"input" },
+      { title:"학년", field:"grade_level", hozAlign:"center", headerFilter:"number" },
+      { title:"개설학기", field:"offering_semester", hozAlign:"center", headerFilter:"input" },
+      { title:"개설주기", field:"offering_cycle", hozAlign:"center", headerFilter:"input" },
+      { title:"성적방식", field:"grading_scheme", hozAlign:"center", headerFilter:"input" },
+      { title:"학점", field:"credit", hozAlign:"center", headerFilter:"number" },
+      { title:"강의시수", field:"lecture_hours", hozAlign:"center", headerFilter:"number" },
+      { title:"실습시수", field:"lab_hours", hozAlign:"center", headerFilter:"number" },
+      { title:"개설학과", field:"department_name", headerFilter:"input" },
+      { title:"담당교수", field:"instructor_name", headerFilter:"input" },
+      { title:"정원", field:"capacity", hozAlign:"center", headerFilter:"number" },
+      { title:"수강인원(모델)", field:"enrollment", hozAlign:"center", headerFilter:"number" },
+      { title:"수정일", field:"updated_at", headerFilter:"input" },
+    ],
+    // rowClick 사용 안 함 (Action 버튼으로만 동작)
+    paginationCounter: "rows",
+  });
+
+  PAGE_SIZE_SELECT.addEventListener('change', () => {
+    courseTable.setPageSize(Number(PAGE_SIZE_SELECT.value || 20));
+    courseTable.setPage(1);
+  });
+  BTN_REFRESH.addEventListener('click', () => courseTable.replaceData());
+
+  // ========= 수강 학생 테이블 =========
+  const enrolledTable = new Tabulator("#enrolled-table", {
+    height: 420,
+    layout: "fitDataStretch",
+    columns: [
+      { title:"학번", field:"student_no", headerFilter:"input" },
+      { title:"이름", field:"name", headerFilter:"input" },
+      { title:"단과대", field:"college", headerFilter:"input" },
+      { title:"전공", field:"major", headerFilter:"input" },
+      { title:"액션", field:"student_id", width:120, hozAlign:"center", formatter: cell => {
+          const sid = cell.getValue();
+          return `<button class="btn small danger" onclick="removeEnroll(${sid})">삭제</button>`;
+      }},
+    ],
+  });
+
+  async function loadEnrolled(code){
+    const res = await fetch(`/api/course/${encodeURIComponent(code)}/students`);
+    if(!res.ok){ enrolledTable.setData([]); return; }
+    const data = await res.json();
+    enrolledTable.setData(data);
+  }
+
+  // ========= 교육과정 매핑 테이블 (조회) =========
+  const curriculaTable = new Tabulator("#curricula-table", {
+    height: 360,
+    layout: "fitDataStretch",
+    columns: [
+      { title:"교육과정명", field:"course_name", headerFilter:"input" },
+      { title:"필수여부", field:"required_flag", hozAlign:"center", headerFilter:"input" },
+      { title:"최초 인정", field:"initial", hozAlign:"center" },
+      { title:"최종 인정", field:"final", hozAlign:"center" },
+    ],
+  });
+
+  async function loadCurricula(code){
+    const res = await fetch(`/api/course/${encodeURIComponent(code)}/curricula`);
+    if(!res.ok){ curriculaTable.setData([]); return; }
+    const arr = await res.json();
+    arr.forEach(r=>{
+      r.initial = `${r.initial_year ?? '-'} ${r.initial_semester ?? ''}`.trim();
+      r.final = r.final_year ? `${r.final_year} ${r.final_semester ?? ''}`.trim() : '-';
+    });
+    curriculaTable.setData(arr);
+  }
+
+  // ========= 개요 =========
+  async function loadCourseOverview(code){
+    const res = await fetch(`/api/course/${encodeURIComponent(code)}/overview`);
+    if(!res.ok) throw new Error('overview load failed');
+    const j = await res.json();
+    if(!j.ok) throw new Error('overview !ok');
+    const d = j.data;
+
+    TITLE.textContent = d.course_name_ko || d.course_name_en || d.course_code || '';
+    SUBTITLE.textContent = `${d.course_code || ''} • ${d.offering_semester || ''}`;
+
+    OV.innerHTML = `
+      <div>코드: <b>${d.course_code || '-'}</b></div>
+      <div>교과목명(국문): <b>${d.course_name_ko || '-'}</b></div>
+      <div>교과목명(영문): <b>${d.course_name_en || '-'}</b></div>
+      <div>과정/학년: <b>${d.degree_level || '-'} / ${d.grade_level ?? '-'}</b></div>
+      <div>개설학기/주기: <b>${d.offering_semester || '-'} / ${d.offering_cycle || '-'}</b></div>
+      <div>성적방식: <b>${d.grading_scheme || '-'}</b></div>
+      <div>학점/시수: <b>${d.credit ?? '-'} / 강의 ${d.lecture_hours ?? '-'} · 실습 ${d.lab_hours ?? '-'}</b></div>
+      <div>개설학과/담당: <b>${d.department_name || '-'} / ${d.instructor_name || '-'}</b></div>
+      <div>정원/수강(모델): <b>${d.capacity ?? '-'} / ${d.enrollment ?? '-'}</b></div>
+      <div>실제 수강 연결 수: <b>${d.enrolled_count ?? '-'}</b></div>
+      <div style="grid-column: 1 / -1;">수정일: <b>${d.updated_at || '-'}</b></div>
+    `;
+  }
+
+  // ========= 모달 열기 =========
+  async function openCourseInner(code){
+    currentCourse.code = code;
+    MODAL.style.display = 'block';
+
+    // 탭 기본값: 학생
+    TAB_STD_CONT.style.display = 'block';
+    TAB_CUR_CONT.style.display = 'none';
+    TAB_STD.classList.add('primary');
+    TAB_CUR.classList.remove('primary');
+
+    // 초기화
+    INPUT.value = ""; selectedStudentId = null; renderSuggest([]);
+
+    try{
+      await Promise.all([
+        loadCourseOverview(code),
+        loadEnrolled(code),
+        loadCurricula(code),
+      ]);
+    }catch(err){
+      console.error('[courses] detail load error:', err);
+      OV.innerHTML = `<div style="color:#b91c1c;">상세 로드 중 오류가 발생했습니다.</div>`;
+    }
+  }
+
+  // 전역에서 호출될 수 있게 export
+  window.openCourse = function(row){
+    const code = row?.course_code;
+    if(!code){ alert('course_code 누락'); return; }
+    openCourseInner(code);
+  }
+
+  // 닫기
+  BTN_CLOSE.addEventListener('click', () => { MODAL.style.display = 'none'; });
+
+  // 수정 (레지스터 페이지 edit 모드로 이동)
+  BTN_EDIT_COURSE.addEventListener('click', () => {
+    if(!currentCourse.code) return;
+    location.href = `/admin/register/course?edit=${encodeURIComponent(currentCourse.code)}`;
+  });
+
+  // ========= 탭 전환 =========
+  TAB_STD.onclick = () => {
+    TAB_STD_CONT.style.display = 'block';
+    TAB_CUR_CONT.style.display = 'none';
+    TAB_STD.classList.add('primary');
+    TAB_CUR.classList.remove('primary');
+  };
+  TAB_CUR.onclick = () => {
+    TAB_STD_CONT.style.display = 'none';
+    TAB_CUR_CONT.style.display = 'block';
+    TAB_CUR.classList.add('primary');
+    TAB_STD.classList.remove('primary');
+  };
+
+  // ========= 자동완성 =========
+  INPUT.addEventListener('input', () => {
+    const q = INPUT.value.trim();
+    selectedStudentId = null;
+    if(acTimer) clearTimeout(acTimer);
+    if(q.length < 1){ renderSuggest([]); return; }
+    acTimer = setTimeout(fetchSuggest, 180);
+  });
+
+  async function fetchSuggest(){
+    const q = INPUT.value.trim();
+    if(!q) return renderSuggest([]);
+    const res = await fetch(`/api/students/search?q=${encodeURIComponent(q)}`);
+    if(!res.ok){ renderSuggest([]); return; }
+    const list = await res.json();
+    renderSuggest(list || []);
+  }
+
+  function renderSuggest(list){
+    SUGGEST.innerHTML = "";
+    if(!list || !list.length) return;
+    const box = document.createElement('div');
+    box.style.position = 'absolute';
+    box.style.top = '36px';
+    box.style.left = '0';
+    box.style.zIndex = '70';
+    box.style.minWidth = '280px';
+    box.style.maxHeight = '240px';
+    box.style.overflow = 'auto';
+    box.style.background = '#fff';
+    box.style.border = '1px solid #e5e7eb';
+    box.style.borderRadius = '8px';
+    list.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn';
+      btn.style.display = 'block';
+      btn.style.width = '100%';
+      btn.style.textAlign = 'left';
+      btn.style.background = 'transparent';
+      btn.style.border = 'none';
+      btn.style.padding = '8px 10px';
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => {
+        INPUT.value = item.label;
+        selectedStudentId = item.student_id;
+        SUGGEST.innerHTML = "";
+      });
+      box.appendChild(btn);
+    });
+    SUGGEST.appendChild(box);
+  }
+
+  BTN_ADD.addEventListener('click', async () => {
+    if(!currentCourse.code){ alert("과목을 먼저 선택하세요."); return; }
+    if(!selectedStudentId){ alert("학생을 선택하세요."); return; }
+    const fd = new FormData();
+    fd.append("student_id", String(selectedStudentId));
+    const res = await fetch(`/api/course/${encodeURIComponent(currentCourse.code)}/add_student`, { method: "POST", body: fd });
+    const j = await res.json();
+    if(j && j.ok){
+      await loadEnrolled(currentCourse.code);
+      INPUT.value = ""; selectedStudentId = null; renderSuggest([]);
+    }else{
+      alert("추가 실패: " + (j?.message || "unknown"));
+    }
+  });
+
+  // 전역 삭제 함수
+  window.removeEnroll = async function(studentId){
+    if(!currentCourse.code) return;
+    if(!confirm("수강 기록을 삭제할까요?")) return;
+    const res = await fetch(`/api/course/${encodeURIComponent(currentCourse.code)}/${studentId}/remove`, { method: "POST" });
+    const j = await res.json();
+    if(j && j.ok){
+      await loadEnrolled(currentCourse.code);
+    }else{
+      alert("삭제 실패: " + (j?.message || "unknown"));
+    }
+  }
+});
+</script>
+{% endblock %}

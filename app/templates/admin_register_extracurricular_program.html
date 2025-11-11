@@ -1,6 +1,13 @@
 {% extends "admin_base.html" %}
 {% block title %}비교과 프로그램 등록{% endblock %}
-
+{% if request.query_params.get("success") %}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    alert("비교과 프로그램 등록이 완료되었습니다.");
+    history.replaceState(null, "", window.location.pathname);
+  });
+</script>
+{% endif %}
 {% block content %}
 <form class="admin-form" method="post" action="/admin/register/extracurricular">
 
@@ -14,7 +21,7 @@
 
     <div class="section-card__inner">
 
-      <!-- 프로그램명 -->
+      <!-- 프로그램명 / 프로그램 유형 -->
       <div class="form-row">
         <div class="field flex-1">
           <label class="field-label">
@@ -52,6 +59,34 @@
           </select>
         </div>
       </div>
+
+      <!-- ▼ 추가: 세부 프로그램명 / 주관(Organizer) (프로그램 유형 아래) -->
+      <div class="form-row">
+        <div class="field flex-1">
+          <label class="field-label">
+            세부 프로그램명
+          </label>
+          <input
+            class="input-control"
+            type="text"
+            name="sub_program_name"
+            placeholder="예: 데이터톤(고급반)"
+          />
+        </div>
+
+        <div class="field flex-1">
+          <label class="field-label">
+            주관(Organizer)
+          </label>
+          <input
+            class="input-control"
+            type="text"
+            name="organizer"
+            placeholder="예: 의료정보학과 / 대학원행정실"
+          />
+        </div>
+      </div>
+      <!-- ▲ 추가 끝 -->
 
       <!-- 개최 연도 / 개최 월 -->
       <div class="form-row">
@@ -237,29 +272,6 @@
 
       <div class="field-hint-block">
         여러 교육과정에 동시에 매핑 가능. 각 과정별로 인정 점수(환산값)를 개별 등록합니다.
-      </div>
-    </div>
-  </section>
-
-
-  {# ────────────────────────────────
-     3. 참가자 등록 (추후 개발)
-     ──────────────────────────────── #}
-  <section class="section-card">
-    <header class="section-card__header">
-      <h2 class="section-card__title">
-        참가자 등록
-        <span style="font-size:.8rem; font-weight:400; color:#64748b;">
-          (추후 개발 예정)
-        </span>
-      </h2>
-    </header>
-
-    <div class="section-card__inner">
-      <div class="field-hint-block" style="color:#64748b;">
-        프로그램 참가 학생을 연결해서 ‘참여 실적’을 자동 집계할 수 있도록
-        여기에 학생 검색/추가 UI가 붙을 예정입니다.
-        지금은 아직 저장 안 됩니다.
       </div>
     </div>
   </section>

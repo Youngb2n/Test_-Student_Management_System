@@ -1,7 +1,14 @@
 {% extends "admin_base.html" %}
 {% block title %}교육과정 등록{% endblock %}
-
 {% block content %}
+{% if request.query_params.get("success") %}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    alert("교육과정 등록이 완료되었습니다.");
+    history.replaceState(null, "", window.location.pathname);
+  });
+</script>
+{% endif %}
 {% from "partials/_section_card.html" import section_card %}
 
 <form class="admin-form" method="post" action="/admin/register/curriculum">
@@ -416,18 +423,32 @@
   initCurriculumRequirements();
   bindRequirementSkipToggle();
 
+  function onProgramFormSubmit(e) {
+    // 모든 program-row loop
+    document.querySelectorAll("#program_rows_container .program-row").forEach(row => {
+      const cy = row.querySelector('input[name="enroll_end_year"]');     // 숨겨진 input
+      const cs = row.querySelector('input[name="enroll_end_semester"]'); // 숨겨진 input
 
-  // 성공 alert (?success=1)
-  {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "1") {
-      alert("교육과정이 성공적으로 등록되었습니다.");
-      history.replaceState(null, "", window.location.pathname);
-    }
+      const cyVal = (cy?.value || "").trim();
+      const csVal = (cs?.value || "").trim();
+
+      if (!cyVal) {
+        // 연도 없으면 둘 다 전송 제외
+        if (cy) cy.disabled = true;
+        if (cs) cs.disabled = true;
+      } else {
+        // 연도 있는데 학기 비어있음 → 경고
+        if (!csVal) {
+          alert("종료연도 입력 시 종료학기도 선택해주세요.");
+          e.preventDefault();
+        }
+      }
+    });
   }
 
-  // --- 제출 직전 정리 로직 ---
-const form = document.querySelector("form.admin-form");
+  document.querySelector("form.admin-form")?.addEventListener("submit", onProgramFormSubmit);
+    // --- 제출 직전 정리 로직 ---
+  const form = document.querySelector("form.admin-form");
 
 if (form) {
   form.addEventListener("submit", () => {
