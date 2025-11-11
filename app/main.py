@@ -3300,8 +3300,6 @@ def api_student_programs(
 
     data = []
     for pname, ptype, subname, org, oy, om, rc, src, ex in rows:
-        print(subname, org)
-        print(oy, om)
         data.append({
             "program_name": pname,
             "program_type": ptype,

@@ -288,123 +288,163 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ========= 탭: 교육과정 이수현황 =========
   function ensureCurriculaTable(studentId, forceReload){
-    // head
-    const head = [
-      { title:"유형", field:"program_type", headerFilter:"input", width:110 },
-      { title:"교육과정명", field:"curriculum_name", headerFilter:"input",
-        mutator:(v,d)=> v ?? d.course_name ?? d.curriculum?.course_name ?? "-" },
-      { title:"상태", field:"status", hozAlign:"center", width:100 },
+  // ── 1) 컬럼 헤더 ───────────────────────────────────────────
+  const head = [
+    { title:"유형", field:"program_type", headerFilter:"input", width:110 },
+    { title:"교육과정명", field:"curriculum_name", headerFilter:"input",
+      mutator:(v,d)=> v ?? d.course_name ?? d.curriculum?.course_name ?? "-" },
+    { title:"상태", field:"status", hozAlign:"center", width:100 },
 
-      // 등록/종료: 커리큘럼 조회에 있는 키들도 폴백으로 다 받음
-      { title:"등록 연도", field:"joined_year", width:90, hozAlign:"center",
-        mutator:(v,d)=> v ?? d.join_year ?? d.joined_year ?? d.joined?.year ?? "-" },
-      { title:"등록 학기", field:"joined_term", width:90, hozAlign:"center",
-        mutator:(v,d)=> v ?? d.join_term ?? d.joined_term ?? d.joined?.term ?? "-" },
+    { title:"등록 연도", field:"joined_year", width:90, hozAlign:"center",
+      mutator:(v,d)=> v ?? d.join_year ?? d.joined_year ?? d.joined?.year ?? "-" },
+    { title:"등록 학기", field:"joined_term", width:90, hozAlign:"center",
+      mutator:(v,d)=> v ?? d.join_term ?? d.joined_term ?? d.joined?.term ?? "-" },
 
-      { title:"종료 연도", field:"completed_year", width:90, hozAlign:"center",
-        mutator:(v,d)=> v ?? d.complete_year ?? d.completed_year ?? d.completed?.year ?? "-" },
-      { title:"종료 학기", field:"completed_term", width:90, hozAlign:"center",
-        mutator:(v,d)=> v ?? d.complete_term ?? d.completed_term ?? d.completed?.term ?? "-" },
+    { title:"종료 연도", field:"completed_year", width:90, hozAlign:"center",
+      mutator:(v,d)=> v ?? d.complete_year ?? d.completed_year ?? d.completed?.year ?? "-" },
+    { title:"종료 학기", field:"completed_term", width:90, hozAlign:"center",
+      mutator:(v,d)=> v ?? d.complete_term ?? d.completed_term ?? d.completed?.term ?? "-" },
 
-      { title:"요건코드", field:"requirement_code", headerFilter:"input", width:140,
-        mutator:(v,d)=> v ?? d.requirement?.requirement_code ?? d.req_code ?? "-" },
-    ];
+    { title:"요건코드", field:"requirement_code", headerFilter:"input", width:140,
+      mutator:(v,d)=> v ?? d.requirement?.requirement_code ?? d.req_code ?? "-" },
+  ];
 
-    // 합계/최소 페어
-    const gotNeed = (gotKey, needKey, title, width=130) => ({
-      title, field: gotKey, width, hozAlign:"right",
-      formatter:(cell)=>{
-        const row = cell.getRow().getData();
-        const got  = Number(row[gotKey] ?? 0);
-        const need = Number(row[needKey] ?? 0);
-        const g = Number.isFinite(got) ? got : 0;
-        const n = Number.isFinite(need) ? need : 0;
-        return `${g} / ${n}`;
-      }
-    });
+  // ── 2) 합계/최소 페어 표현 도우미 ──────────────────────────
+  const gotNeed = (gotKey, needKey, title, width=130) => ({
+    title, field: gotKey, width, hozAlign:"right",
+    formatter:(cell)=>{
+      const row = cell.getRow().getData();
+      const g = Number(row[gotKey]  ?? 0);
+      const n = Number(row[needKey] ?? 0);
+      return `${Number.isFinite(g)?g:0} / ${Number.isFinite(n)?n:0}`;
+    }
+  });
 
-    const totals = [
-      gotNeed("course_total_credit", "required_credit", "교과학점"),
-      gotNeed("extrac_converted_total", "total_converted_required", "비교과 환산", 140),
-    ];
+  const totals = [
+    gotNeed("course_total_credit", "required_credit", "교과학점"),
+    gotNeed("extrac_converted_total", "total_converted_required", "비교과 환산", 140),
+  ];
 
-    // 비교과 최소(9종)
-    const CAT = [
-      "min_ai_med_talks","min_exchange_forum","min_seminar",
-      "min_hospital_visit","min_company_visit","min_academic_conf",
-      "min_expo","min_competition","min_etc"
-    ];
-    const LABEL = {
-      min_ai_med_talks:"Talks", min_exchange_forum:"성과교류회", min_seminar:"세미나",
-      min_hospital_visit:"병원", min_company_visit:"회사", min_academic_conf:"학회",
-      min_expo:"박람회", min_competition:"경진대회", min_etc:"기타",
-    };
-    const cats = CAT.map(k => ({
-      title: LABEL[k], field: `${k}_got`, width:110, hozAlign:"right",
-      formatter:(cell)=>{
-        const r = cell.getRow().getData();
-        const got  = Number(r[`${k}_got`]  ?? r[k] ?? 0);
-        const need = Number(r[`${k}_need`] ?? r[k] ?? 0);
-        return `${Number.isFinite(got)?got:0} / ${Number.isFinite(need)?need:0}`;
-      }
-    }));
+  // ── 3) 비교과 9개 카테고리 ─────────────────────────────────
+  const CAT = [
+    "min_ai_med_talks","min_exchange_forum","min_seminar",
+    "min_hospital_visit","min_company_visit","min_academic_conf",
+    "min_expo","min_competition","min_etc"
+  ];
+  const LABEL = {
+    min_ai_med_talks:"Talks", min_exchange_forum:"성과교류회", min_seminar:"세미나",
+    min_hospital_visit:"병원", min_company_visit:"회사", min_academic_conf:"학회",
+    min_expo:"박람회", min_competition:"경진대회", min_etc:"기타",
+  };
+  const cats = CAT.map(k => ({
+    title: LABEL[k], field: `${k}_got`, width:110, hozAlign:"right",
+    formatter:(cell)=>{
+      const r = cell.getRow().getData();
+      const got  = Number(r[`${k}_got`]  ?? r[k] ?? 0);   // 서버가 *_got 없이 min_*만 보낼 때 보정
+      const need = Number(r[`${k}_need`] ?? 0);
+      return `${Number.isFinite(got)?got:0} / ${Number.isFinite(need)?need:0}`;
+    }
+  }));
 
-    const passes = [
-      { title:"학점충족", field:"pass_credit",    formatter:"tickCross", hozAlign:"center", width:90 },
-      { title:"환산충족", field:"pass_converted", formatter:"tickCross", hozAlign:"center", width:95 },
-      { title:"최소충족", field:"pass_minimum",   formatter:"tickCross", hozAlign:"center", width:95 },
-      { title:"필수교과", field:"required_core_done", formatter:"tickCross", hozAlign:"center", width:95 },
-      { title:"이수조건 충족", field:"__meets__", width:120, hozAlign:"center",
-        mutator:(v,d)=> Boolean(d.meets_requirement ?? d.pass_all ?? d.passed ?? d.meets),
-        formatter:"tickCross"
-      },
-    ];
+  // ── 4) 패스 플래그 컬럼들(최소충족=pass_minimum 분리) ───────
+  const passes = [
+    { title:"학점충족",   field:"pass_credit",    formatter:"tickCross", hozAlign:"center", width:90 },
+    { title:"환산충족",   field:"pass_converted", formatter:"tickCross", hozAlign:"center", width:95 },
+    { title:"최소충족",   field:"pass_minimum",   formatter:"tickCross", hozAlign:"center", width:95 }, // ← 최소충족
+    { title:"필수교과",   field:"required_core_done", formatter:"tickCross", hozAlign:"center", width:95 }, // ← 별개
+    { title:"이수조건 충족", field:"__meets__", width:120, hozAlign:"center",
+      mutator:(v,d)=> Boolean(d.meets_requirement ?? d.pass_all ?? d.passed ?? d.meets),
+      formatter:"tickCross"
+    },
+  ];
 
-    if (!window.curriculaTable){
-      window.curriculaTable = new Tabulator("#tbl-curricula", {
-        height: 460,
-        layout: "fitDataStretch",
-        ajaxURL: `/api/student/${encodeURIComponent(studentId)}/curricula`,
-        ajaxConfig: "GET",
-        columns: [...head, ...totals, ...cats, ...passes],
-        ajaxResponse: async (url, params, resp) => {
-          // 배열/래핑 형태 정규화
-          const data = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
-          // 1) 필요치(need) 보강: 커리큘럼 requirements 호출해 채워넣기
-          const uniqueCur = [...new Set(data.map(r => r.curriculum_id ?? r.id).filter(Boolean))];
-          await Promise.all(uniqueCur.map(curId => getRequirementNeed(curId)));
-          for (const row of data){
-            const curId = row.curriculum_id ?? row.id;
-            if (curId && !row.required_credit){
-              const need = await getRequirementNeed(curId);
-              row.required_credit = need.required_credit ?? need.credit ?? 0;
-              row.total_converted_required = need.total_converted_required ?? need.extrac_converted ?? 0;
-              // 카테고리 need
-              for (const k of ["min_ai_med_talks","min_exchange_forum","min_seminar","min_hospital_visit","min_company_visit","min_academic_conf","min_expo","min_competition","min_etc"]){
-                const v = Number(need[k] ?? 0);
-                if (Number.isFinite(v)) row[`${k}_need`] = v;
-              }
+  // ── 5) 테이블 생성/갱신 ────────────────────────────────────
+  if (!window.curriculaTable){
+    window.curriculaTable = new Tabulator("#tbl-curricula", {
+      height: 460,
+      layout: "fitDataStretch",
+      ajaxURL: `/api/student/${encodeURIComponent(studentId)}/curricula`,
+      ajaxConfig: "GET",
+      columns: [...head, ...totals, ...cats, ...passes],
+
+      // ── 6) 응답 정규화 + 보정(핵심 패치) ───────────────────
+      ajaxResponse: async (url, params, resp) => {
+        // 6-1. 배열로 정규화
+        const data = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+
+        // 6-2. 커리큘럼별 need(요건) 채우기
+        const uniqueCur = [...new Set(data.map(r => r.curriculum_id ?? r.id).filter(Boolean))];
+        await Promise.all(uniqueCur.map(curId => getRequirementNeed(curId)));
+
+        for (const row of data){
+          const curId = row.curriculum_id ?? row.id;
+
+          // (a) need 기본값 주입
+          const need = curId ? (await getRequirementNeed(curId)) : {};
+          if (row.required_credit == null)
+            row.required_credit = Number(need.required_credit ?? need.credit ?? 0);
+          if (row.total_converted_required == null)
+            row.total_converted_required = Number(need.total_converted_required ?? need.extrac_converted ?? 0);
+          for (const k of CAT){
+            const n = Number(need[k] ?? 0);
+            if (Number.isFinite(n) && row[`${k}_need`] == null) row[`${k}_need`] = n;
+          }
+
+          // (b) got 보정: 서버가 *_got 대신 min_*만 보낼 수도 있음 → *_got 채움
+          for (const k of CAT){
+            if (row[`${k}_got`] == null){
+              // 서버가 min_* 값으로 누적 참석 수를 싣는 케이스 대응
+              const fallback = Number(row[k] ?? row[`${k}_count`] ?? 0);
+              row[`${k}_got`] = Number.isFinite(fallback) ? fallback : 0;
             }
           }
-          // 2) 필수교과 이수 여부: 학생 수강셋 vs 커리큘럼 필수셋
-          try{
-            const takenSet = await getStudentCourseSet(studentId);
-            for (const row of data){
-              const curId = row.curriculum_id ?? row.id;
-              if (!curId){ row.required_core_done = true; continue; }
-              const reqSet = await getRequiredCourseSet(curId);
-              row.required_core_done = [...reqSet].every(code => takenSet.has(code));
-            }
-          }catch(e){ console.warn("required_core_done calc err", e); }
-          return data;
-        },
-      });
-    } else if (forceReload){
-      curriculaTable.setColumns([...head, ...totals, ...cats, ...passes]);
-      curriculaTable.setData(`/api/student/${encodeURIComponent(studentId)}/curricula`);
-    }
-  }
 
+          // (c) 학점/환산 패스 플래그 보정
+          if (row.pass_credit == null){
+            const got = Number(row.course_total_credit ?? 0);
+            const needC = Number(row.required_credit ?? 0);
+            row.pass_credit = (Number.isFinite(got) && Number.isFinite(needC)) ? (got >= needC) : false;
+          }
+          if (row.pass_converted == null){
+            const got = Number(row.extrac_converted_total ?? 0);
+            const needX = Number(row.total_converted_required ?? 0);
+            row.pass_converted = (Number.isFinite(got) && Number.isFinite(needX)) ? (got >= needX) : false;
+          }
+        }
+
+        // 6-3. 필수교과 충족 계산 (학생 수강셋 vs 커리큘럼 필수셋)
+        try{
+          const takenSet = await getStudentCourseSet(studentId);
+          for (const row of data){
+            const curId = row.curriculum_id ?? row.id;
+            if (!curId){ row.required_core_done = true; continue; }
+            const reqSet = await getRequiredCourseSet(curId);
+            row.required_core_done = [...reqSet].every(code => takenSet.has(String(code).trim()));
+          }
+        }catch(e){ console.warn("required_core_done calc err", e); }
+
+        // 6-4. 최소충족(pass_minimum) 재계산 (★패치 핵심★)
+        for (const row of data){
+          row.pass_minimum = CAT.every(k =>
+            (Number(row[`${k}_got`])  || 0) >= (Number(row[`${k}_need`]) || 0)
+          );
+        }
+
+        // 6-5. 전체 충족(__meets__) 보정(백엔드 값이 없으면 로컬 계산)
+        for (const row of data){
+          if (row.__meets__ == null && row.meets_requirement == null && row.pass_all == null && row.passed == null && row.meets == null){
+            row.__meets__ = Boolean(row.pass_credit && row.pass_converted && row.pass_minimum && row.required_core_done);
+          }
+        }
+
+        return data;
+      },
+    });
+  } else if (forceReload){
+    curriculaTable.setColumns([...head, ...totals, ...cats, ...passes]);
+    curriculaTable.setData(`/api/student/${encodeURIComponent(studentId)}/curricula`);
+  }
+}
   // ========= 탭: 교과목 수강 =========
   function ensureCoursesTable(studentId, forceReload){
     const cols = [
@@ -497,7 +537,6 @@ document.addEventListener('DOMContentLoaded', () => {
       window.leavesTable = new Tabulator("#tbl-leaves", {
         height: 360,
         layout: "fitDataStretch",
-        ajaxURL: "/__placeholder__", // 실제 로드는 아래 setData로
         columns: cols,
       });
       leavesTable.setDataFromLocal = async ()=>{
